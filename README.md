@@ -1,7 +1,12 @@
-# Tauri + Solid + Typescript
+# Tauri + SolidJS Template
 
-This template should help get you started developing with Tauri, Solid and Typescript in Vite.
+🔋 Batteries included.
 
-## Recommended IDE Setup
+## Configure
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+> TODO(domingasp) add a simple script?
+
+Search and replace the following with your project details:
+- `tauri-solidjs-template`
+- `AUTHOR` (all uppercase)
+- `DESCRIPTION` (all uppercase)
