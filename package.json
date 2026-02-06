@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lint": "cd src-tauri && cargo clippy"
   },
   "license": "MIT",
   "dependencies": {
