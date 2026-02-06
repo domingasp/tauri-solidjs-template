@@ -5,9 +5,19 @@
       80
     ]
   },
+  "rust-analyzer.check.command": "clippy",
   "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.rulers": [
       100
+    ]
+  },
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "\\.rs$",
+        "cmd": "cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged"
+      }
     ]
   },
   "json.schemaDownload.trustedDomains": {
@@ -19,6 +29,7 @@
     "https://schema.tauri.app/config/2": true
   },
   "cSpell.words": [
+    "clippy",
     "solidjs",
     "tauri"
   ]
