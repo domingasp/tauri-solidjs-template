@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">tauri-solidjs-template</string>
+    <string name="main_activity_title">tauri-solidjs-template</string>
+</resources>
