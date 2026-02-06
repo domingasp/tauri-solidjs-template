@@ -5,6 +5,7 @@
     "vivaxy.vscode-conventional-commits",
     "streetsidesoftware.code-spell-checker",
     "editorconfig.editorconfig",
-    "usernamehw.errorlens"
+    "usernamehw.errorlens",
+    "tamasfe.even-better-toml"
   ]
 }

@@ -1,0 +1,9 @@
+{
+    "json.schemaDownload.trustedDomains": {
+        "https://schema.tauri.app": true, 
+    },
+    "cSpell.words": [
+        "solidjs",
+        "tauri"
+    ]
+}
