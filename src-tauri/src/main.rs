@@ -1,6 +1,9 @@
+//! Main entry point of the application.
+
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+/// Main entry point of the application.
 fn main() {
-    tauri_solidjs_template_lib::run()
+    tauri_solidjs_template_lib::run();
 }
