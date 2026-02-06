@@ -16,7 +16,7 @@
     "commands": [
       {
         "match": "\\.rs$",
-        "cmd": "cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged",
+        "cmd": "cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged"
       }
     ]
   },
