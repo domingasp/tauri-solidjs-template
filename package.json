@@ -2,7 +2,9 @@
   "name": "tauri-solidjs-template",
   "version": "0.1.0",
   "description": "DESCRIPTION",
-  "author": {"name": "AUTHOR"},
+  "author": {
+    "name": "AUTHOR"
+  },
   "type": "module",
   "scripts": {
     "start": "vite",
