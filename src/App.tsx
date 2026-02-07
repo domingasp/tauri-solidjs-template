@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { createSignal } from "solid-js";
 
 function App() {
   const [greetMsg, setGreetMsg] = createSignal("");
