@@ -14,7 +14,7 @@
   "[javascript][typescript][javascriptreact][typescriptreact]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
-  "[html][css][yaml][yml][json][jsonc]": {
+  "[html][css][yaml][json][jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "rust-analyzer.check.command": "clippy",
