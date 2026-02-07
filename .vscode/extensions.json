@@ -11,6 +11,7 @@
     "emeraldwalk.runonsave",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
-    "vadimcn.vscode-lldb"
+    "vadimcn.vscode-lldb",
+    "bradlc.vscode-tailwindcss"
   ]
 }
