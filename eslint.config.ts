@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import eslintPluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
 import eslintPluginBoundaries, {
   Config,
   Rules,
@@ -7,6 +8,7 @@ import eslintPluginBoundaries, {
 import eslintPluginPerfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import eslintPluginSolid from "eslint-plugin-solid/configs/typescript";
+import eslintPluginTailwindVariants from "eslint-plugin-tailwind-variants";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -21,7 +23,10 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
 
-  eslintPluginPerfectionist.configs["recommended-natural"],
+  {
+    files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+    ...eslintPluginPerfectionist.configs["recommended-natural"],
+  },
 
   // eslint-plugin-solid type not compatible with eslint
   // https://github.com/solidjs-community/eslint-plugin-solid/issues/178
@@ -42,6 +47,16 @@ export default defineConfig([
       ],
     } satisfies Settings,
   } satisfies Config,
+
+  {
+    extends: [eslintPluginBetterTailwindcss.configs.recommended],
+    settings: {
+      "better-tailwindcss": {
+        entryPoint: "src/styles/global.css",
+      },
+    },
+  },
+  ...eslintPluginTailwindVariants.configs.recommended,
 
   // Prettier plugin should be last to override other rules
   eslintPluginPrettierRecommended,

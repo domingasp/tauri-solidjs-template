@@ -9,13 +9,21 @@
     "javascript",
     "typescript",
     "javascriptreact",
-    "typescriptreact"
+    "typescriptreact",
+    "css",
+    // as file association is set to tailwindcss
+    "tailwindcss"
   ],
-  "[javascript][typescript][javascriptreact][typescriptreact]": {
+  "[javascript][typescript][javascriptreact][typescriptreact][css]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
-  "[html][css][yaml][json][jsonc]": {
+  "[html][yaml][json][jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "tailwindCSS.classFunctions": ["tv"],
+  "tailwindCSS.experimental.classRegex": [["(`.*?`)", "(\".*?\")", "('.*?')"]],
+  "files.associations": {
+    "*.css": "tailwindcss"
   },
   "rust-analyzer.check.command": "clippy",
   "[rust]": {
