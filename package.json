@@ -12,18 +12,35 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
-    "lint": "cd src-tauri && cargo clippy"
+    "lint": "pnpm run lint:js && pnpm run lint:rust",
+    "lint:js": "eslint .",
+    "lint:js:debug": "cross-env ESLINT_PLUGIN_BOUNDARIES_DEBUG=1 eslint . --debug",
+    "lint:rust": "cd src-tauri && cargo clippy",
+    "prepare": "husky"
   },
   "license": "MIT",
   "dependencies": {
-    "solid-js": "^1.9.3",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "@tauri-apps/plugin-opener": "^2",
+    "solid-js": "^1.9.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@tauri-apps/cli": "^2",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-boundaries": "^5.4.0",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-solid": "^0.14.5",
+    "globals": "^17.3.0",
+    "husky": "^9.1.7",
+    "jiti": "^2.6.1",
+    "lint-staged": "^16.2.7",
+    "prettier": "3.8.1",
     "typescript": "~5.6.2",
+    "typescript-eslint": "^8.54.0",
     "vite": "^6.0.3",
-    "vite-plugin-solid": "^2.11.0",
-    "@tauri-apps/cli": "^2"
+    "vite-plugin-solid": "^2.11.0"
   }
 }
