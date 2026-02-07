@@ -10,6 +10,7 @@
     "pflannery.vscode-versionlens",
     "emeraldwalk.runonsave",
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode"
+    "esbenp.prettier-vscode",
+    "vadimcn.vscode-lldb"
   ]
 }
