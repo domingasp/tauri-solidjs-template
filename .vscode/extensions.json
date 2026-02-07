@@ -8,6 +8,8 @@
     "usernamehw.errorlens",
     "tamasfe.even-better-toml",
     "pflannery.vscode-versionlens",
-    "emeraldwalk.runonsave"
+    "emeraldwalk.runonsave",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
   ]
 }
