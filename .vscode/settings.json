@@ -35,6 +35,10 @@
       {
         "match": "\\.rs$",
         "cmd": "cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged"
+      },
+      {
+        "match": "\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$",
+        "cmd": "pnpm knip"
       }
     ]
   },
@@ -44,7 +48,8 @@
     "https://www.schemastore.org/": true,
     "https://json.schemastore.org/": true,
     "https://json-schema.org/": true,
-    "https://schema.tauri.app/config/2": true
+    "https://schema.tauri.app/config/2": true,
+    "https://unpkg.com/knip@5/schema.json": true
   },
-  "cSpell.words": ["clippy", "solidjs", "tauri"]
+  "cSpell.words": ["clippy", "commitlint", "lintignore", "solidjs", "tauri"]
 }
