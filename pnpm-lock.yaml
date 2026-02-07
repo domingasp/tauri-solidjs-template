@@ -7,9 +7,6 @@ settings:
 importers:
   .:
     dependencies:
-      "@tailwindcss/vite":
-        specifier: ^4.1.18
-        version: 4.1.18(vite@6.4.1(@types/node@25.2.1)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))
       "@tauri-apps/api":
         specifier: ^2
         version: 2.10.1
@@ -25,9 +22,6 @@ importers:
       tailwind-variants:
         specifier: ^3.2.2
         version: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.1.18)
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
     devDependencies:
       "@commitlint/cli":
         specifier: ^20.4.1
@@ -38,6 +32,9 @@ importers:
       "@eslint/js":
         specifier: ^9.39.2
         version: 9.39.2
+      "@tailwindcss/vite":
+        specifier: ^4.1.18
+        version: 4.1.18(vite@6.4.1(@types/node@25.2.1)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))
       "@tauri-apps/cli":
         specifier: ^2
         version: 2.10.0
@@ -83,6 +80,9 @@ importers:
       prettier:
         specifier: 3.8.1
         version: 3.8.1
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
       typescript:
         specifier: ~5.6.2
         version: 5.6.3
