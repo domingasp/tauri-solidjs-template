@@ -3,6 +3,11 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 import eslintPluginSolid from "eslint-plugin-solid/configs/typescript";
+import eslintPluginBoundaries, {
+  Settings,
+  Config,
+  Rules,
+} from "eslint-plugin-boundaries";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 export default defineConfig([
@@ -17,6 +22,22 @@ export default defineConfig([
 
   // eslint-plugin-solid type not compatible with eslint
   eslintPluginSolid as never,
+
+  {
+    plugins: { boundaries: eslintPluginBoundaries },
+    settings: {
+      "boundaries/elements": [
+        {
+          type: "app",
+          pattern: ["./*.{ts,tsx}", "src/*.{ts,tsx}"],
+          mode: "full",
+        },
+      ],
+    } satisfies Settings,
+    rules: {
+      "boundaries/element-types": ["error", { default: "disallow", rules: [] }],
+    } satisfies Rules,
+  } satisfies Config,
 
   // Prettier plugin should be last to override other rules
   eslintPluginPrettierRecommended,
