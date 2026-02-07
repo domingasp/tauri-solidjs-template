@@ -14,21 +14,9 @@
     "tauri": "tauri",
     "lint": "pnpm run lint:js && pnpm run lint:rust",
     "lint:js": "eslint .",
-    "lint:js:debug": "ESLINT_PLUGIN_BOUNDARIES_DEBUG=1 eslint . --debug",
+    "lint:js:debug": "cross-env ESLINT_PLUGIN_BOUNDARIES_DEBUG=1 eslint . --debug",
     "lint:rust": "cd src-tauri && cargo clippy",
     "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix"
-    ],
-    "*.{json,html,css,md,yml,yaml}": [
-      "prettier --write"
-    ],
-    "src-tauri/**/*.rs": [
-      "cargo fmt --manifest-path src-tauri/Cargo.toml --",
-      "cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged --"
-    ]
   },
   "license": "MIT",
   "dependencies": {
@@ -39,6 +27,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@tauri-apps/cli": "^2",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-boundaries": "^5.4.0",

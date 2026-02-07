@@ -13,7 +13,7 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 export default defineConfig([
   globalIgnores(["src-tauri/**"]),
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     plugins: { js },
     extends: ["js/recommended"],
     languageOptions: { globals: globals.browser },
@@ -21,6 +21,7 @@ export default defineConfig([
   tseslint.configs.recommended,
 
   // eslint-plugin-solid type not compatible with eslint
+  // https://github.com/solidjs-community/eslint-plugin-solid/issues/178
   eslintPluginSolid as never,
 
   {
