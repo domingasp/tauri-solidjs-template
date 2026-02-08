@@ -17,7 +17,8 @@
     "lint:js:debug": "cross-env ESLINT_PLUGIN_BOUNDARIES_DEBUG=1 eslint . --debug",
     "lint:rust": "cd src-tauri && cargo clippy",
     "prepare": "husky",
-    "knip": "knip"
+    "knip": "knip",
+    "generate-icons": "tsx scripts/generate-icons.ts"
   },
   "license": "MIT",
   "dependencies": {
@@ -48,6 +49,7 @@
     "knip": "^5.83.1",
     "lint-staged": "^16.2.7",
     "prettier": "3.8.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.54.0",
