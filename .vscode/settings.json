@@ -53,5 +53,14 @@
     "https://schema.tauri.app/config/2": true,
     "https://unpkg.com/knip@5/schema.json": true
   },
-  "cSpell.words": ["clippy", "commitlint", "lintignore", "solidjs", "tauri"]
+  "cSpell.words": [
+    "appkit",
+    "clippy",
+    "commitlint",
+    "lintignore",
+    "objc",
+    "serde",
+    "solidjs",
+    "tauri"
+  ]
 }
