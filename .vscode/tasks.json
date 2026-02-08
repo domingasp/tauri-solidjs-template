@@ -10,7 +10,7 @@
       "windows": {
         // Force kill any existing node processes before starting.
         // When Tauri attempts to re-hook into dev server it seems to fail
-        "command": "(powershell -Command \"Get-Process node | Where-Object {$_.CommandLine -like '*pnpm*dev*'} | Stop-Process -Force\" 2>nul || exit 0) && pnpm dev"
+        "command": "(powershell -Command \"Get-CimInstance Win32_Process -Filter \\\"Name='node.exe' AND CommandLine LIKE '%pnpm%dev%'\\\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }\" 2>nul || exit 0) && pnpm dev"
       },
       "problemMatcher": {
         "pattern": {
