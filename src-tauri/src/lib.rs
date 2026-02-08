@@ -26,6 +26,10 @@ pub fn run() {
                     macos::configure_window_menu();
                 })?;
             }
+
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
+
             Ok(())
         })
         .run(tauri::generate_context!())
