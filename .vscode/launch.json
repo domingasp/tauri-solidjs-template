@@ -12,7 +12,7 @@
           "--no-default-features"
         ]
       },
-      "preLaunchTask": "ui:dev"
+      "preLaunchTask": "ui:dev:restart"
     },
     {
       "type": "lldb",

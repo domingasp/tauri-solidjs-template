@@ -2,19 +2,21 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "ui:dev",
+      "label": "ui:dev:restart",
       "type": "shell",
       "isBackground": true,
-      "command": "pnpm",
-      "args": ["dev"],
-      "problemMatcher": []
+      "command": "pkill -f 'pnpm dev' || true; pnpm dev",
+      "windows": {
+        // Force kill any existing node processes before starting.
+        // When Tauri attempts to re-hook into dev server it seems to fail
+        "command": "(taskkill /F /IM node.exe /T 2>nul || exit 0) && pnpm dev"
+      }
     },
     {
       "label": "ui:build",
       "type": "shell",
       "command": "pnpm",
-      "args": ["build"],
-      "problemMatcher": []
+      "args": ["build"]
     }
   ]
 }
