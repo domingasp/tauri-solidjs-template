@@ -34,8 +34,10 @@
     "commands": [
       {
         "match": "\\.rs$",
-        "cmd": "cd src-tauri && cargo clippy --fix --allow-dirty --allow-staged"
+        "cmd": "cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged"
       },
+      // If performance starts to degrade, consider disabling and running
+      // knip manually (currently ~20-30ms)
       {
         "match": "\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$",
         "cmd": "pnpm knip"
