@@ -5,11 +5,22 @@
       "label": "ui:dev:restart",
       "type": "shell",
       "isBackground": true,
+      // Any command that was started with `pnpm dev`
       "command": "pkill -f 'pnpm dev' || true; pnpm dev",
       "windows": {
         // Force kill any existing node processes before starting.
         // When Tauri attempts to re-hook into dev server it seems to fail
-        "command": "(taskkill /F /IM node.exe /T 2>nul || exit 0) && pnpm dev"
+        "command": "(powershell -Command \"Get-Process node | Where-Object {$_.CommandLine -like '*pnpm*dev*'} | Stop-Process -Force\" 2>nul || exit 0) && pnpm dev"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE.*ready in",
+          "endsPattern": "(Local|Network):.*http"
+        }
       }
     },
     {
