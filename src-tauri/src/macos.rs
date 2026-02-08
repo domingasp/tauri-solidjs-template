@@ -4,7 +4,6 @@
 /// to the Window menu. Requires macOS Sequoia (15.0+) for full support.
 ///
 /// Must be called after the Window menu is created with title "Window".
-#[cfg(target_os = "macos")]
 pub fn configure_window_menu() {
     unsafe {
         use objc2::{class, msg_send, runtime::AnyObject};
@@ -12,6 +11,11 @@ pub fn configure_window_menu() {
 
         let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
         let main_menu: *mut AnyObject = msg_send![app, mainMenu];
+
+        if main_menu.is_null() {
+            log::warn!("Main menu not found, cannot configure Window menu");
+            return;
+        }
 
         // Find Windows menu
         let window_title = NSString::from_str("Window");
