@@ -19,9 +19,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![greet])
-        .setup(|_app| {
+        .setup(|app| {
             #[cfg(target_os = "macos")]
-            macos::configure_window_menu();
+            {
+                app.run_on_main_thread(move || {
+                    macos::configure_window_menu();
+                })?;
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
