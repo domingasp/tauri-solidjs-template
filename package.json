@@ -16,12 +16,12 @@
     "lint:js": "eslint .",
     "lint:js:debug": "cross-env ESLINT_PLUGIN_BOUNDARIES_DEBUG=1 eslint . --debug",
     "lint:rust": "cd src-tauri && cargo clippy",
-    "prepare": "husky"
+    "prepare": "husky",
+    "knip": "knip"
   },
   "license": "MIT",
   "dependencies": {
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
     "solid-js": "^1.9.3",
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.2.2"
@@ -32,6 +32,7 @@
     "@eslint/js": "^9.39.2",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
+    "@types/node": "^25.2.1",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
@@ -44,6 +45,7 @@
     "globals": "^17.3.0",
     "husky": "^9.1.7",
     "jiti": "^2.6.1",
+    "knip": "^5.83.1",
     "lint-staged": "^16.2.7",
     "prettier": "3.8.1",
     "tailwindcss": "^4.1.18",
