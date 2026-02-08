@@ -23,7 +23,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 app.run_on_main_thread(move || {
-                    macos::configure_window_menu();
+                    if let Err(e) = std::panic::catch_unwind(|| {
+                        macos::configure_window_menu();
+                    }) {
+                        log::error!("Failed to configure window menu: {e:?}");
+                    }
                 })?;
             }
 
