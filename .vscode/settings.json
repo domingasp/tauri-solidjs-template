@@ -20,6 +20,10 @@
   "[html][yaml][json][jsonc]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "[xml]": {
+    "editor.defaultFormatter": "redhat.vscode-xml",
+    "editor.tabSize": 4
+  },
   "tailwindCSS.classFunctions": ["tv"],
   "tailwindCSS.experimental.classRegex": [["(`.*?`)", "(\".*?\")", "('.*?')"]],
   "files.associations": {

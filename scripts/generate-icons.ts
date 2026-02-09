@@ -1,4 +1,5 @@
 import { input, select } from "@inquirer/prompts";
+import chalk from "chalk";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -6,8 +7,19 @@ import sharp from "sharp";
 
 const ASSETS_DIR = "assets";
 const TAURI_ICONS_DIR = "src-tauri/icons";
-const TEMP_ICON = path.join(ASSETS_DIR, "icon-temp.png");
-const TEMP_MACOS_ICON = path.join(ASSETS_DIR, "icon-macOS-temp.png");
+const ANDROID_RES_DIR = "src-tauri/gen/android/app/src/main/res";
+const ANDROID_BACKGROUND_XML = path.join(
+  ANDROID_RES_DIR,
+  "values/ic_launcher_background.xml",
+);
+const TEMP_DIR = path.join(ASSETS_DIR, ".temp-icons");
+
+const TEMP_IOS_ICON = path.join(TEMP_DIR, "icon-ios-temp.png");
+const TEMP_ANDROID_ICON = path.join(TEMP_DIR, "icon-android-temp.png");
+const TEMP_MACOS_ICON = path.join(TEMP_DIR, "icon-macOS-temp.png");
+const TEMP_WINDOWS_ICON = path.join(TEMP_DIR, "icon-windows-temp.png");
+const TEMP_ANDROID_BACKUP = path.join(TEMP_DIR, "icon-android-backup");
+
 const GENERATED_ICNS = path.join(TAURI_ICONS_DIR, "icon.icns");
 const MACOS_ICNS = path.join(TAURI_ICONS_DIR, "icon.macOS.icns");
 
@@ -15,21 +27,88 @@ const TARGET_SIZE = 1024;
 const MACOS_PADDING_PERCENT = 0.12; // 12% padding on each side (24% total)
 const CORNER_RADIUS_PERCENT = 0.2237; // 22.37% corner radius for macOS icons
 
+// Android adaptive icons to preserve
+const ANDROID_ADAPTIVE_DIRS = [
+  "mipmap-anydpi-v26",
+  "mipmap-hdpi",
+  "mipmap-mdpi",
+  "mipmap-xhdpi",
+  "mipmap-xxhdpi",
+  "mipmap-xxxhdpi",
+];
+
+/** Backup Android adaptive icon folders from generated res directory. */
+function backupAndroidAdaptiveIcons(): void {
+  console.log("📦 Backing up Android adaptive icons...");
+
+  if (!fs.existsSync(TEMP_ANDROID_BACKUP)) {
+    fs.mkdirSync(TEMP_ANDROID_BACKUP, { recursive: true });
+  }
+
+  for (const dir of ANDROID_ADAPTIVE_DIRS) {
+    const sourceDir = path.join(ANDROID_RES_DIR, dir);
+    const backupDir = path.join(TEMP_ANDROID_BACKUP, dir);
+
+    if (fs.existsSync(sourceDir)) {
+      fs.cpSync(sourceDir, backupDir, { recursive: true });
+      console.log(`  ${chalk.green("✔")} Backed up ${dir}`);
+    }
+  }
+}
+
+/** Create icon with background color on full canvas (iOS/Android). */
+async function createIconWithBackground(
+  inputPath: string,
+  outputPath: string,
+  backgroundColor: string,
+  paddingPercent: number,
+  platform: string,
+): Promise<void> {
+  console.log(
+    `🔨 Creating ${platform} icon with background and ${paddingPercent * 100}% padding...`,
+  );
+
+  const paddingSize = Math.floor(TARGET_SIZE * paddingPercent);
+  const iconSize = TARGET_SIZE - paddingSize * 2;
+
+  const resizedIcon = await sharp(inputPath)
+    .resize(iconSize, iconSize, {
+      background: { alpha: 0, b: 0, g: 0, r: 0 },
+      fit: "contain",
+    })
+    .png()
+    .toBuffer();
+
+  await sharp({
+    create: {
+      background: backgroundColor,
+      channels: 4,
+      height: TARGET_SIZE,
+      width: TARGET_SIZE,
+    },
+  })
+    .composite([{ input: resizedIcon, left: paddingSize, top: paddingSize }])
+    .png()
+    .toFile(outputPath);
+
+  console.log(`${chalk.green("✔")} ${platform} icon created at ${outputPath}`);
+}
+
 /** Resize image with padding centered on a 1024x1024 canvas. */
 async function createMacOSIcon(
   inputPath: string,
   outputPath: string,
   backgroundColor: string | undefined,
   useSquircle: boolean,
+  iconPaddingPercent: number,
 ): Promise<void> {
-  console.log("Creating macOS icon with background and padding...");
+  console.log("🔨 Creating macOS icon with background and padding...");
 
   const paddingSize = Math.floor(TARGET_SIZE * MACOS_PADDING_PERCENT);
   const backgroundSize = TARGET_SIZE - paddingSize * 2;
   const cornerRadius = Math.floor(backgroundSize * CORNER_RADIUS_PERCENT);
 
   // Extra padding to create space from background edge
-  const iconPaddingPercent = 0.08;
   const iconPadding = Math.floor(backgroundSize * iconPaddingPercent);
   const iconSize = backgroundSize - iconPadding * 2;
 
@@ -70,7 +149,7 @@ async function createMacOSIcon(
     .png()
     .toFile(outputPath);
 
-  console.log(`✔ macOS icon created at ${outputPath}`);
+  console.log(`${chalk.green("✔")} macOS icon created at ${outputPath}`);
 }
 
 /** Create a padded icon on a transparent canvas. */
@@ -79,7 +158,9 @@ async function createPaddedIcon(
   outputPath: string,
   paddingPercent: number,
 ): Promise<void> {
-  console.log(`Creating padded icon with ${paddingPercent * 100}% padding...`);
+  console.log(
+    `🔨 Creating padded icon with ${paddingPercent * 100}% padding...`,
+  );
 
   const paddingSize = Math.floor(TARGET_SIZE * paddingPercent);
   const iconSize = TARGET_SIZE - paddingSize * 2;
@@ -104,7 +185,7 @@ async function createPaddedIcon(
     .png()
     .toFile(outputPath);
 
-  console.log(`✔ Padded icon created at ${outputPath}`);
+  console.log(`${chalk.green("✔")} Padded icon created at ${outputPath}`);
 }
 
 /** Create a rounded rectangle mask. */
@@ -183,54 +264,69 @@ function findInputIcon(): string {
 /**
  * Generate icons for Tauri application.
  *
- * A padded icon is generated for macOS to ensure consistent sizing. If
- * a custom icon is preferred please use `pnpm tauri icon assets/icon.png`
- * and add your own `icon.macOS.icns` to `src-tauri/icons`.
+ * Creates separate padded versions for:
+ * - Standard platforms (with user-specified padding)
+ * - Android adaptive icons (with larger padding for splash screen)
+ * - macOS (with background and custom padding)
  */
 async function main() {
   try {
-    console.log("Generating icons...");
-
     if (!fs.existsSync(ASSETS_DIR)) {
       fs.mkdirSync(ASSETS_DIR, { recursive: true });
     }
 
+    if (!fs.existsSync(TEMP_DIR)) {
+      fs.mkdirSync(TEMP_DIR, { recursive: true });
+    }
+
     const inputIcon = findInputIcon();
-
-    const paddingPercent = await promptForPadding();
-    await createPaddedIcon(inputIcon, TEMP_ICON, paddingPercent);
-
     const background = await promptForBackground();
+
+    const iosPadding = 0.1;
+    const androidPadding = 0.25;
+    const macOSPadding = 0.05;
+
+    const macOSShape = await promptForMacOSShape();
+
+    await createPaddedIcon(inputIcon, TEMP_ANDROID_ICON, androidPadding);
+    runCommand(`pnpm tauri icon ${TEMP_ANDROID_ICON}`);
+    backupAndroidAdaptiveIcons();
 
     await createMacOSIcon(
       inputIcon,
       TEMP_MACOS_ICON,
-      background?.color,
-      background?.useSquircle ?? true,
+      background,
+      macOSShape === "squircle",
+      macOSPadding,
     );
-
-    console.log("Generating macOS icons...");
     runCommand(`pnpm tauri icon ${TEMP_MACOS_ICON}`);
+    if (fs.existsSync(GENERATED_ICNS)) moveFile(GENERATED_ICNS, MACOS_ICNS);
 
-    if (fs.existsSync(GENERATED_ICNS)) {
-      moveFile(GENERATED_ICNS, MACOS_ICNS);
-    }
+    await createIconWithBackground(
+      inputIcon,
+      TEMP_IOS_ICON,
+      background,
+      iosPadding,
+      "iOS",
+    );
+    // iOS and Windows are handled by standard tauri icon command logic
+    await createPaddedIcon(inputIcon, TEMP_WINDOWS_ICON, 0.05);
+    runCommand(`pnpm tauri icon ${TEMP_WINDOWS_ICON}`);
 
-    console.log("Generating icons for other platforms...");
-    runCommand(`pnpm tauri icon ${TEMP_ICON}`);
+    // generate icons replaces ic_launcher_background.xml
+    updateAndroidBackgroundColor(background);
+    restoreAndroidAdaptiveIcons();
 
-    console.log("✔ All icons generated successfully!");
+    console.log(`${chalk.green("✔")} All icons generated successfully!`);
   } catch (error) {
-    console.error("✘ Error:", error instanceof Error ? error.message : error);
+    console.error(
+      `${chalk.red("✘")} Error:`,
+      error instanceof Error ? error.message : error,
+    );
     process.exit(1);
   } finally {
-    console.log("Cleaning up temporary files...");
-    if (fs.existsSync(TEMP_MACOS_ICON)) {
-      fs.unlinkSync(TEMP_MACOS_ICON);
-    }
-    if (fs.existsSync(TEMP_ICON)) {
-      fs.unlinkSync(TEMP_ICON);
-    }
+    console.log("🚮 Cleaning up temporary files...");
+    fs.rmSync(TEMP_DIR, { recursive: true });
   }
 }
 
@@ -242,7 +338,7 @@ function moveFile(source: string, destination: string): void {
   }
 
   fs.renameSync(source, destination);
-  console.log(`✔ Moved ${source} to ${destination}`);
+  console.log(`${chalk.green("✔")} Moved ${source} to ${destination}`);
 }
 
 /**
@@ -250,40 +346,27 @@ function moveFile(source: string, destination: string): void {
  *
  * Used for macOS icon generation.
  */
-async function promptForBackground(): Promise<
-  undefined | { color: string; useSquircle: boolean }
-> {
-  const choice: "custom" | "dark" | "light" | "transparent" = await select({
+async function promptForBackground(): Promise<string> {
+  const choice: "custom" | "dark" | "light" = await select({
     choices: [
       { name: "Light", value: "light" },
       { name: "Dark", value: "dark" },
-      { name: "Transparent", value: "transparent" },
       {
         name: "Custom hex color",
         value: "custom",
       },
     ],
     default: "dark",
-    message: "Choose macOS icon background color:",
+    message: "Choose background color (iOS, Android, macOS):",
   });
 
-  if (choice === "transparent") {
-    console.log("Using transparent background for macOS icon...");
-    return undefined;
-  }
-
-  let color: string;
   switch (choice) {
     case "dark":
-      console.log("Using dark background (#171717) for macOS icon...");
-      color = "#171717";
-      break;
+      return "#171717";
     case "light":
-      console.log("Using light background (#FFFFFF) for macOS icon...");
-      color = "#FFFFFF";
-      break;
+      return "#FFFFFF";
     default:
-      color = await input({
+      return await input({
         default: "#171717",
         message: "Enter hex color:",
         validate: (value) => {
@@ -294,59 +377,74 @@ async function promptForBackground(): Promise<
         },
       });
   }
+}
 
-  const shapeChoice: "rounded-rectangle" | "squircle" = await select({
+/**
+ * Prompt user for macOS icon shape.
+ */
+async function promptForMacOSShape(): Promise<
+  "rounded-rectangle" | "squircle"
+> {
+  return await select({
     choices: [
       { name: "Squircle", value: "squircle" },
       { name: "Rounded rectangle", value: "rounded-rectangle" },
     ],
-    default: "rounded-rectangle",
+    default: "squircle",
     message: "Choose macOS icon shape:",
   });
-
-  return { color, useSquircle: shapeChoice === "squircle" };
 }
 
-/**
- * Prompt user for padding amount.
- *
- * Used for all platform icon generation.
- */
-async function promptForPadding(): Promise<number> {
-  const choice = await select({
-    choices: [
-      { name: "None (0%)", value: 0 },
-      { name: "Small (5%)", value: 0.05 },
-      { name: "Medium (10%)", value: 0.1 },
-      { name: "Large (15%)", value: 0.15 },
-      { name: "Custom", value: -1 },
-    ],
-    default: 0.12,
-    message: "Choose padding amount for icons:",
-  });
+/** Restore Android adaptive icon folders to res directory. */
+function restoreAndroidAdaptiveIcons(): void {
+  console.log("📦 Restoring Android adaptive icons...");
 
-  if (choice === -1) {
-    const padding = await input({
-      default: "5",
-      message: "Enter padding percentage (0-30):",
-      validate: (value) => {
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0 || num > 30) {
-          return "Please enter a valid number between 0 and 30";
-        }
-        return true;
-      },
-    });
-    return parseFloat(padding) / 100;
+  if (!fs.existsSync(TEMP_ANDROID_BACKUP)) {
+    console.warn("  No backup found, skipping restore.");
+    return;
   }
 
-  return choice;
+  const adaptiveDirs = fs.readdirSync(TEMP_ANDROID_BACKUP);
+
+  for (const dir of adaptiveDirs) {
+    const backupDir = path.join(TEMP_ANDROID_BACKUP, dir);
+    const targetDir = path.join(ANDROID_RES_DIR, dir);
+
+    if (fs.existsSync(backupDir)) {
+      fs.cpSync(backupDir, targetDir, { recursive: true });
+      console.log(`  ${chalk.green("✔")} Restored ${dir}`);
+    }
+  }
 }
 
 /** Execute a shell command */
 function runCommand(command: string): void {
-  console.log(`Running: ${command}`);
-  execSync(command, { stdio: "inherit" });
+  console.log(`⚡️ Running: ${command}`);
+  execSync(command, { stdio: "ignore" });
+}
+
+/** Updates the Android ic_launcher_background.xml with the chosen hex color. */
+function updateAndroidBackgroundColor(hexColor: string): void {
+  if (!fs.existsSync(ANDROID_BACKGROUND_XML)) {
+    console.warn(
+      `  Android background XML not found at ${ANDROID_BACKGROUND_XML}. Skipping...`,
+    );
+    return;
+  }
+
+  console.log(`🎨 Updating Android launcher background XML to ${hexColor}...`);
+
+  const xmlContent = fs.readFileSync(ANDROID_BACKGROUND_XML, "utf-8");
+
+  const updatedXml = xmlContent.replace(
+    /(<color name="ic_launcher_background">).*?(<\/color>)/,
+    `$1${hexColor}$2`,
+  );
+
+  console.log(updatedXml);
+
+  fs.writeFileSync(ANDROID_BACKGROUND_XML, updatedXml);
+  console.log(`  ${chalk.green("✔")} Updated ic_launcher_background.xml`);
 }
 
 main();
