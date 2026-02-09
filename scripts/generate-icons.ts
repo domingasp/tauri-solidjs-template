@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
@@ -8,12 +8,12 @@ const TAURI_ICONS_DIR = "src-tauri/icons";
 const INPUT_ICON = path.join(ASSETS_DIR, "icon.png");
 const MACOS_ICON = path.join(ASSETS_DIR, "icon-macos.png");
 const GENERATED_ICNS = path.join(TAURI_ICONS_DIR, "icon.icns");
-const MACOS_ICNS = path.join(TAURI_ICONS_DIR, "icon.mac.icns");
+const MACOS_ICNS = path.join(TAURI_ICONS_DIR, "icon.macOS.icns");
 
 const TARGET_SIZE = 1024;
 const MACOS_PADDING_PERCENT = 0.12; // 12% padding on each side (24% total)
 
-/** Resize image with padding centered on a 1024x1024 canvas */
+/** Resize image with padding centered on a 1024x1024 canvas. */
 async function createMacOSIcon(
   inputPath: string,
   outputPath: string,
@@ -46,6 +46,13 @@ async function createMacOSIcon(
   console.log(`✔ macOS icon created at ${outputPath}`);
 }
 
+/**
+ * Generate icons for Tauri application.
+ *
+ * A padded icon is generated for macOS to ensure consistent sizing. If
+ * a custom icon is preferred please use `pnpm tauri icon assets/icon.png`
+ * and add your own `icon.macOS.icns` to `src-tauri/icons`.
+ */
 async function main() {
   try {
     console.log("Generating icons...");
@@ -70,19 +77,19 @@ async function main() {
     console.log("Generating icons for other platforms...");
     runCommand(`pnpm tauri icon ${INPUT_ICON}`);
 
-    if (fs.existsSync(MACOS_ICON)) {
-      console.log("Cleaning up temporary files...");
-      fs.unlinkSync(MACOS_ICON);
-    }
-
     console.log("✔ All icons generated successfully!");
   } catch (error) {
     console.error("✘ Error:", error instanceof Error ? error.message : error);
     process.exit(1);
+  } finally {
+    if (fs.existsSync(MACOS_ICON)) {
+      console.log("Cleaning up temporary files...");
+      fs.unlinkSync(MACOS_ICON);
+    }
   }
 }
 
-/** Move and rename a file */
+/** Move and rename a file. */
 function moveFile(source: string, destination: string): void {
   const destDir = path.dirname(destination);
   if (!fs.existsSync(destDir)) {
