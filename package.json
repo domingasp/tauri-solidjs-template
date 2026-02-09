@@ -50,6 +50,7 @@
     "jiti": "^2.6.1",
     "knip": "^5.83.1",
     "lint-staged": "^16.2.7",
+    "ora": "^9.3.0",
     "prettier": "3.8.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
