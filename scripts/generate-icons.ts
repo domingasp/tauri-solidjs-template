@@ -7,6 +7,7 @@ import sharp from "sharp";
 
 const ASSETS_DIR = "assets";
 const TAURI_ICONS_DIR = "src-tauri/icons";
+const IOS_ICONS_DIR = "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset";
 const ANDROID_RES_DIR = "src-tauri/gen/android/app/src/main/res";
 const ANDROID_BACKGROUND_XML = path.join(
   ANDROID_RES_DIR,
@@ -19,6 +20,7 @@ const TEMP_ANDROID_ICON = path.join(TEMP_DIR, "icon-android-temp.png");
 const TEMP_MACOS_ICON = path.join(TEMP_DIR, "icon-macOS-temp.png");
 const TEMP_WINDOWS_ICON = path.join(TEMP_DIR, "icon-windows-temp.png");
 const TEMP_ANDROID_BACKUP = path.join(TEMP_DIR, "icon-android-backup");
+const TEMP_IOS_BACKUP = path.join(TEMP_DIR, "icon-ios-backup");
 
 const GENERATED_ICNS = path.join(TAURI_ICONS_DIR, "icon.icns");
 const MACOS_ICNS = path.join(TAURI_ICONS_DIR, "icon.macOS.icns");
@@ -54,6 +56,25 @@ function backupAndroidAdaptiveIcons(): void {
       console.log(`  ${chalk.green("✔")} Backed up ${dir}`);
     }
   }
+}
+
+/** Backup iOS icons from generated directory. */
+function backupIOSIcons(): void {
+  console.log("📦 Backing up iOS icons...");
+
+  if (!fs.existsSync(IOS_ICONS_DIR)) {
+    console.warn(
+      `  iOS icons directory not found at ${IOS_ICONS_DIR}. Skipping...`,
+    );
+    return;
+  }
+
+  if (!fs.existsSync(TEMP_IOS_BACKUP)) {
+    fs.mkdirSync(TEMP_IOS_BACKUP, { recursive: true });
+  }
+
+  fs.cpSync(IOS_ICONS_DIR, TEMP_IOS_BACKUP, { recursive: true });
+  console.log(`  ${chalk.green("✔")} Backed up iOS icons`);
 }
 
 /** Create icon with background color on full canvas (iOS/Android). */
@@ -309,13 +330,16 @@ async function main() {
       iosPadding,
       "iOS",
     );
-    // iOS and Windows are handled by standard tauri icon command logic
+    runCommand(`pnpm tauri icon ${TEMP_IOS_ICON}`);
+    backupIOSIcons();
+
     await createPaddedIcon(inputIcon, TEMP_WINDOWS_ICON, 0.05);
     runCommand(`pnpm tauri icon ${TEMP_WINDOWS_ICON}`);
 
     // generate icons replaces ic_launcher_background.xml
     updateAndroidBackgroundColor(background);
     restoreAndroidAdaptiveIcons();
+    restoreIOSIcons();
 
     console.log(`${chalk.green("✔")} All icons generated successfully!`);
   } catch (error) {
@@ -326,7 +350,7 @@ async function main() {
     process.exit(1);
   } finally {
     console.log("🚮 Cleaning up temporary files...");
-    fs.rmSync(TEMP_DIR, { recursive: true });
+    // fs.rmSync(TEMP_DIR, { recursive: true });
   }
 }
 
@@ -415,6 +439,23 @@ function restoreAndroidAdaptiveIcons(): void {
       console.log(`  ${chalk.green("✔")} Restored ${dir}`);
     }
   }
+}
+
+/** Restore iOS icons from backup. */
+function restoreIOSIcons(): void {
+  console.log("📦 Restoring iOS icons...");
+
+  if (!fs.existsSync(TEMP_IOS_BACKUP)) {
+    console.warn("  No iOS backup found, skipping restore.");
+    return;
+  }
+
+  if (!fs.existsSync(IOS_ICONS_DIR)) {
+    fs.mkdirSync(IOS_ICONS_DIR, { recursive: true });
+  }
+
+  fs.cpSync(TEMP_IOS_BACKUP, IOS_ICONS_DIR, { recursive: true });
+  console.log(`  ${chalk.green("✔")} Restored iOS icons`);
 }
 
 /** Execute a shell command */
