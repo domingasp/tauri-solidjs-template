@@ -1,4 +1,5 @@
 import { input, select } from "@inquirer/prompts";
+import { colord } from "colord";
 import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -38,7 +39,7 @@ const CONFIG = {
   platform: {
     android: { name: "Android", padding: 0.25 },
     ios: { name: "iOS", padding: 0.1 },
-    macos: { backgroundPadding: 0.12, name: "macOS", padding: 0.05 },
+    macos: { name: "macOS", padding: 0.1 },
     windows: { name: "Windows", padding: 0.05 },
   },
 } as const;
@@ -53,6 +54,7 @@ type IconGenerationOptions = {
   outputPath: string;
   paddingPercent: number;
   platform: Platform;
+  useGradient?: boolean;
 };
 type MacOSIconOptions = Omit<
   IconGenerationOptions,
@@ -174,22 +176,90 @@ class FileManager {
   }
 }
 
+class GradientGenerator {
+  /** Generate a subtle radial gradient SVG. */
+  static createGradient(
+    width: number,
+    height: number,
+    baseColor: string,
+  ): string {
+    const base = colord(baseColor);
+    const brightness = base.brightness();
+
+    let variantA: string;
+    let variantB: string;
+
+    if (brightness < 0.3) {
+      variantA = base.lighten(0.2).hue(20).toHex();
+      variantB = base.lighten(0.08).hue(-20).toHex();
+    } else if (brightness >= 1.0) {
+      variantA = base.darken(0.15).hue(20).toHex();
+      variantB = base.darken(0.3).hue(-20).toHex();
+    } else {
+      variantA = base.lighten(0.08).hue(20).toHex();
+      variantB = base.darken(0.08).hue(-20).toHex();
+    }
+
+    return `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="topLeft" cx="0%" cy="10%" r="90%">
+            <stop offset="0%" style="stop-color:${variantA};stop-opacity:0.6" />
+            <stop offset="100%" style="stop-color:${baseColor};stop-opacity:0" />
+          </radialGradient>
+          <radialGradient id="bottomRight" cx="100%" cy="100%" r="80%">
+            <stop offset="0%" style="stop-color:${variantB};stop-opacity:0.6" />
+            <stop offset="100%" style="stop-color:${baseColor};stop-opacity:0" />
+          </radialGradient>
+        </defs>
+        <rect width="${width}" height="${height}" fill="${baseColor}" />
+        <rect width="${width}" height="${height}" fill="url(#topLeft)" />
+        <rect width="${width}" height="${height}" fill="url(#bottomRight)" />
+      </svg>
+    `.trim();
+  }
+
+  /** Create a radial gradient buffer */
+  static async createGradientBuffer(
+    size: number,
+    baseColor: string,
+  ): Promise<Buffer> {
+    const svg = this.createGradient(size, size, baseColor);
+    return await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
+  }
+}
+
 class IconGenerator {
   /** Create an icon with a background color and padding. */
   static async createIconWithBackground(
     options: IconGenerationOptions,
   ): Promise<void> {
-    const { backgroundColor, inputPath, outputPath, paddingPercent } = options;
+    const {
+      backgroundColor,
+      inputPath,
+      outputPath,
+      paddingPercent,
+      useGradient,
+    } = options;
     const paddingSize = Math.floor(
       CONFIG.constants.targetSize * paddingPercent,
     );
     const iconSize = CONFIG.constants.targetSize - paddingSize * 2;
 
     const resizedIcon = await this.resizeIcon(inputPath, iconSize);
-    const canvas = await this.createCanvas(
-      CONFIG.constants.targetSize,
-      backgroundColor,
-    );
+    let canvas: sharp.Sharp;
+    if (useGradient && backgroundColor) {
+      const gradientBuffer = await GradientGenerator.createGradientBuffer(
+        CONFIG.constants.targetSize,
+        backgroundColor,
+      );
+      canvas = sharp(gradientBuffer);
+    } else {
+      canvas = await this.createCanvas(
+        CONFIG.constants.targetSize,
+        backgroundColor,
+      );
+    }
 
     await canvas
       .composite([{ input: resizedIcon, left: paddingSize, top: paddingSize }])
@@ -203,11 +273,12 @@ class IconGenerator {
       iconPaddingPercent,
       inputPath,
       outputPath,
+      useGradient,
       useSquircle,
     } = options;
 
     const paddingSize = Math.floor(
-      CONFIG.constants.targetSize * CONFIG.platform.macos.backgroundPadding,
+      CONFIG.constants.targetSize * CONFIG.platform.macos.padding,
     );
     const backgroundSize = CONFIG.constants.targetSize - paddingSize * 2;
     const cornerRadius = Math.floor(
@@ -225,9 +296,21 @@ class IconGenerator {
           cornerRadius,
         );
 
-    const maskedIcon = await (
-      await this.createCanvas(backgroundSize, backgroundColor)
-    )
+    let backgroundCanvas: sharp.Sharp;
+    if (useGradient && backgroundColor) {
+      const gradientBuffer = await GradientGenerator.createGradientBuffer(
+        backgroundSize,
+        backgroundColor,
+      );
+      backgroundCanvas = sharp(gradientBuffer);
+    } else {
+      backgroundCanvas = await this.createCanvas(
+        backgroundSize,
+        backgroundColor,
+      );
+    }
+
+    const maskedIcon = await backgroundCanvas
       .composite([{ blend: "dest-in", input: mask }, { input: resizedIcon }])
       .png()
       .toBuffer();
@@ -398,6 +481,20 @@ class PromptManager {
       message: "Choose macOS icon shape:",
     });
   }
+
+  /** Request whether to use a gradient. */
+  static async useGradient(): Promise<boolean> {
+    const choice = await select<boolean>({
+      choices: [
+        { name: "Yes - Subtle gradient", value: true },
+        { name: "No - Solid color", value: false },
+      ],
+      default: true,
+      message: "Use a subtle gradient background?",
+    });
+
+    return choice;
+  }
 }
 
 class TaskRunner {
@@ -405,6 +502,7 @@ class TaskRunner {
     inputIcon: string,
     platform: Platform,
     backgroundColor: string,
+    useGradient?: boolean,
     macOSShape?: MacOSShape,
   ): Promise<string> {
     const config = CONFIG.platform[platform];
@@ -418,6 +516,7 @@ class TaskRunner {
           outputPath: tempPath,
           paddingPercent: config.padding,
           platform,
+          useGradient,
         });
         break;
       case "macos":
@@ -426,6 +525,7 @@ class TaskRunner {
           iconPaddingPercent: config.padding,
           inputPath: inputIcon,
           outputPath: tempPath,
+          useGradient,
           useSquircle: macOSShape === "squircle",
         });
         break;
@@ -461,6 +561,7 @@ async function main() {
     spinner.succeed(`Found input icon: ${path.basename(inputIcon)}`);
 
     const backgroundColor = await PromptManager.getBackgroundColor();
+    const useGradient = await PromptManager.useGradient();
     const macOSShape = await PromptManager.getMacOSShape();
 
     spinner.start("Generating Android icons");
@@ -468,6 +569,7 @@ async function main() {
       inputIcon,
       "android",
       backgroundColor,
+      useGradient,
     );
     await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
     AndroidHandler.backup();
@@ -478,6 +580,7 @@ async function main() {
       inputIcon,
       "macos",
       backgroundColor,
+      useGradient,
       macOSShape,
     );
     const macosIcns = path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns);
@@ -491,6 +594,7 @@ async function main() {
       inputIcon,
       "ios",
       backgroundColor,
+      useGradient,
     );
     await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
     IOSHandler.backup();
@@ -501,6 +605,7 @@ async function main() {
       inputIcon,
       "windows",
       backgroundColor,
+      useGradient,
     );
     await TaskRunner.runCommand(`pnpm tauri icon ${windowsTempIcon}`);
     spinner.succeed("Windows icons generated");
