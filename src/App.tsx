@@ -15,7 +15,7 @@ function App() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          greet();
+          void greet();
         }}
       >
         <input

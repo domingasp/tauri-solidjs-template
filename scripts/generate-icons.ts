@@ -56,14 +56,15 @@ const CONFIG = {
 
 // #region Types
 
-type IconGenerationOptions = {
+interface IconGenerationOptions {
   backgroundColor?: string;
   inputPath: string;
   outputPath: string;
   paddingPercent: number;
   platform: Platform;
   useGradient?: boolean;
-};
+}
+
 type MacOSIconOptions = Omit<
   IconGenerationOptions,
   "paddingPercent" | "platform"
@@ -722,8 +723,8 @@ async function main() {
 
     const platforms = await PromptManager.getPlatformsToGenerate();
 
-    let backgroundColor: string = "#171717";
-    let useGradient: boolean = false;
+    let backgroundColor = "#171717";
+    let useGradient = false;
     if (platforms.ios || platforms.android || platforms.macos) {
       backgroundColor = await PromptManager.getBackgroundColor();
       useGradient = await PromptManager.useGradient();
