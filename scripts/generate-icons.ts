@@ -230,20 +230,7 @@ class FileManager {
 class GradientGenerator {
   /** Generate an Android drawable XML string with a radial gradient. */
   static createAndroidDrawable(baseColor: string): string {
-    const base = colord(baseColor);
-    const brightness = base.brightness();
-    let variantA: string;
-    let variantB: string;
-    if (brightness < 0.3) {
-      variantA = base.lighten(0.2).hue(20).toHex();
-      variantB = base.lighten(0.08).hue(-20).toHex();
-    } else if (brightness >= 1.0) {
-      variantA = base.darken(0.15).hue(20).toHex();
-      variantB = base.darken(0.3).hue(-20).toHex();
-    } else {
-      variantA = base.lighten(0.08).hue(20).toHex();
-      variantB = base.darken(0.08).hue(-20).toHex();
-    }
+    const { variantA, variantB } = this.getGradientVariants(baseColor);
 
     return `<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -283,22 +270,7 @@ class GradientGenerator {
     height: number,
     baseColor: string,
   ): string {
-    const base = colord(baseColor);
-    const brightness = base.brightness();
-
-    let variantA: string;
-    let variantB: string;
-
-    if (brightness < 0.3) {
-      variantA = base.lighten(0.2).hue(20).toHex();
-      variantB = base.lighten(0.08).hue(-20).toHex();
-    } else if (brightness >= 1.0) {
-      variantA = base.darken(0.15).hue(20).toHex();
-      variantB = base.darken(0.3).hue(-20).toHex();
-    } else {
-      variantA = base.lighten(0.08).hue(20).toHex();
-      variantB = base.darken(0.08).hue(-20).toHex();
-    }
+    const { variantA, variantB } = this.getGradientVariants(baseColor);
 
     return `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -326,6 +298,29 @@ class GradientGenerator {
   ): Promise<Buffer> {
     const svg = this.createGradient(size, size, baseColor);
     return await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
+  }
+
+  /** Get gradient color variants based on the base color's brightness. */
+  private static getGradientVariants(baseColor: string): {
+    variantA: string;
+    variantB: string;
+  } {
+    const base = colord(baseColor);
+    const brightness = base.brightness();
+    let variantA: string;
+    let variantB: string;
+    if (brightness < 0.3) {
+      variantA = base.lighten(0.2).rotate(20).toHex();
+      variantB = base.lighten(0.08).rotate(-20).toHex();
+    } else if (brightness >= 1.0) {
+      variantA = base.darken(0.15).rotate(20).toHex();
+      variantB = base.darken(0.3).rotate(-20).toHex();
+    } else {
+      variantA = base.lighten(0.08).rotate(20).toHex();
+      variantB = base.darken(0.08).rotate(-20).toHex();
+    }
+
+    return { variantA, variantB };
   }
 }
 
