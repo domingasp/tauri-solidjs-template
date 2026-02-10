@@ -795,10 +795,14 @@ async function main() {
     spinner.start("Moving generated icons to final locations");
     WindowsHandler.restore();
     AndroidHandler.restore();
-    if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
-    else AndroidHandler.updateBackgroundColor(backgroundColor);
-
     IOSHandler.restore();
+
+    if (platforms.android) {
+      // Has to be done last as tauri icon overwrites ic_launcher_background.xml
+      // color
+      if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
+      else AndroidHandler.updateBackgroundColor(backgroundColor);
+    }
     spinner.succeed("Icons moved to final locations");
 
     spinner.succeed("✨ All icons generated successfully!");
