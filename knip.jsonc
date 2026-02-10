@@ -1,7 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   // Be specific with entry files
-  "entry": ["index.html", ".husky/{commit-msg,pre-commit}"],
+  "entry": [
+    "index.html",
+    ".husky/{commit-msg,pre-commit}",
+    "scripts/generate-icons.ts"
+  ],
   "project": ["src/**"],
   "tags": ["-lintignore"]
 }
