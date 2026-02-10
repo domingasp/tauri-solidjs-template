@@ -637,6 +637,13 @@ class TaskRunner {
     const tempPath = FileManager.getTempPath(`icon-${platform}-temp.png`);
 
     switch (platform) {
+      case "android":
+        await IconGenerator.createPaddedIcon(
+          inputIcon,
+          tempPath,
+          config.padding,
+        );
+        break;
       case "ios":
         await IconGenerator.createIconWithBackground({
           backgroundColor,
@@ -657,7 +664,7 @@ class TaskRunner {
           useSquircle: macOSShape === "squircle",
         });
         break;
-      default:
+      case "windows":
         await IconGenerator.createPaddedIcon(
           inputIcon,
           tempPath,
@@ -669,7 +676,7 @@ class TaskRunner {
     return tempPath;
   }
 
-  /** Run a shell command synchronously, suppressing output. */
+  /** Run a shell command asynchronously, suppressing output. */
   static async runCommand(command: string): Promise<void> {
     await execAsync(command);
   }
