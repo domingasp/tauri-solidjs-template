@@ -13,6 +13,8 @@
     "esbenp.prettier-vscode",
     "vadimcn.vscode-lldb",
     "bradlc.vscode-tailwindcss",
-    "webpro.vscode-knip"
+    "webpro.vscode-knip",
+    "redhat.vscode-xml",
+    "awwsky.regionmarker"
   ]
 }
