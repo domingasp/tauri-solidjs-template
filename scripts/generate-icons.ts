@@ -675,6 +675,31 @@ class TaskRunner {
   }
 }
 
+class WindowsHandler {
+  /** Backup standard icon assets. */
+  static backup(): void {
+    const backupPath = FileManager.getBackupPath("windows-icons");
+    if (fs.existsSync(CONFIG.dirs.tauriIcons)) {
+      FileManager.backup(CONFIG.dirs.tauriIcons, backupPath);
+      if (
+        fs.existsSync(path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns))
+      ) {
+        // MacOS icon is not overwritten by tauri icon command, so we don't
+        // want to back it up, as it would overwrite on restore
+        fs.rmSync(path.join(backupPath, CONFIG.files.macosIcns));
+      }
+    }
+  }
+
+  /** Restore standard icon assets from backup. */
+  static restore(): void {
+    const backupPath = FileManager.getBackupPath("windows-icons");
+    if (fs.existsSync(backupPath)) {
+      FileManager.restore(backupPath, CONFIG.dirs.tauriIcons);
+    }
+  }
+}
+
 async function main() {
   const spinner = ora();
 
@@ -697,22 +722,32 @@ async function main() {
       useGradient = await PromptManager.useGradient();
     }
 
+    // Always backup as tauri icon overwrites ALL icons, including non-selected
+    // platforms.
+    WindowsHandler.backup();
+    AndroidHandler.backup();
+    IOSHandler.backup();
+
     if (platforms.macos) {
       const macOSShape = await PromptManager.getMacOSShape();
       spinner.start("Generating macOS icons");
-      const generatedIcns = await TaskRunner.generatePlatformIcons(
+      const macosTempIcon = await TaskRunner.generatePlatformIcons(
         inputIcon,
         "macos",
         backgroundColor,
         useGradient,
         macOSShape,
       );
-      const macosIcns = path.join(
+      await TaskRunner.runCommand(`pnpm tauri icon ${macosTempIcon}`);
+      const generatedIcns = path.join(
         CONFIG.dirs.tauriIcons,
-        CONFIG.files.macosIcns,
+        CONFIG.files.generatedIcns,
       );
       if (fs.existsSync(generatedIcns)) {
-        FileManager.move(generatedIcns, macosIcns);
+        FileManager.move(
+          generatedIcns,
+          path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns),
+        );
       }
       spinner.succeed("macOS icons generated");
     }
@@ -727,9 +762,9 @@ async function main() {
       );
       await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
       spinner.succeed("Android icons generated");
+
+      AndroidHandler.backup();
     }
-    // Always backup as tauri icon overwrites all icons
-    AndroidHandler.backup();
 
     if (platforms.ios) {
       spinner.start("Generating iOS icons");
@@ -741,9 +776,9 @@ async function main() {
       );
       await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
       spinner.succeed("iOS icons generated");
+
+      IOSHandler.backup();
     }
-    // Always backup as tauri icon overwrites all icons
-    IOSHandler.backup();
 
     if (platforms.windows) {
       spinner.start("Generating Windows icons");
@@ -758,6 +793,7 @@ async function main() {
     }
 
     spinner.start("Moving generated icons to final locations");
+    WindowsHandler.restore();
     AndroidHandler.restore();
     if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
     else AndroidHandler.updateBackgroundColor(backgroundColor);
