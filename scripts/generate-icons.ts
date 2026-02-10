@@ -100,7 +100,22 @@ class AndroidHandler {
     }
   }
 
-  /** Update the background color in the Android launcher XML file. */
+  /** Create gradient drawable and update adaptive icon to use it. */
+  static setupGradientBackground(baseColor: string): void {
+    const drawableDir = path.join(CONFIG.dirs.androidRes, "drawable");
+    FileManager.ensureDir(drawableDir);
+
+    const drawablePath = path.join(drawableDir, "ic_launcher_background.xml");
+    const drawableContent = GradientGenerator.createAndroidDrawable(baseColor);
+    fs.writeFileSync(drawablePath, drawableContent);
+
+    this.updateAdaptiveIconBackground(
+      "@color/ic_launcher_background",
+      "@drawable/ic_launcher_background",
+    );
+  }
+
+  /** Update the background color in the Android launcher XML files. */
   static updateBackgroundColor(hexColor: string): void {
     const xmlPath = path.join(
       CONFIG.dirs.androidRes,
@@ -116,6 +131,34 @@ class AndroidHandler {
     );
 
     fs.writeFileSync(xmlPath, updatedXml);
+
+    this.updateAdaptiveIconBackground(
+      "@drawable/ic_launcher_background",
+      "@color/ic_launcher_background",
+    );
+  }
+
+  /** Update adaptive icon XML files to use specified background reference. */
+  private static updateAdaptiveIconBackground(
+    oldReference: string,
+    newReference: string,
+  ): void {
+    const dir = CONFIG.constants.androidAdaptiveDirs.find((d) =>
+      d.startsWith("mipmap-anydpi"),
+    );
+    if (!dir) return;
+
+    const iconFiles = [
+      path.join(CONFIG.dirs.androidRes, dir, "ic_launcher.xml"),
+      path.join(CONFIG.dirs.androidRes, dir, "ic_launcher_round.xml"),
+    ];
+
+    for (const iconPath of iconFiles) {
+      if (!fs.existsSync(iconPath)) continue;
+      let content = fs.readFileSync(iconPath, "utf-8");
+      content = content.replace(new RegExp(oldReference, "g"), newReference);
+      fs.writeFileSync(iconPath, content);
+    }
   }
 }
 
@@ -177,6 +220,55 @@ class FileManager {
 }
 
 class GradientGenerator {
+  /** Generate an Android drawable XML string with a radial gradient. */
+  static createAndroidDrawable(baseColor: string): string {
+    const base = colord(baseColor);
+    const brightness = base.brightness();
+    let variantA: string;
+    let variantB: string;
+    if (brightness < 0.3) {
+      variantA = base.lighten(0.2).hue(20).toHex();
+      variantB = base.lighten(0.08).hue(-20).toHex();
+    } else if (brightness >= 1.0) {
+      variantA = base.darken(0.15).hue(20).toHex();
+      variantB = base.darken(0.3).hue(-20).toHex();
+    } else {
+      variantA = base.lighten(0.08).hue(20).toHex();
+      variantB = base.darken(0.08).hue(-20).toHex();
+    }
+
+    return `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <solid android:color="${baseColor}" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <gradient
+                android:type="radial"
+                android:gradientRadius="90%"
+                android:centerX="0.0"
+                android:centerY="0.1"
+                android:startColor="${variantA}"
+                android:endColor="@android:color/transparent" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <gradient
+                android:type="radial"
+                android:gradientRadius="80%"
+                android:centerX="1.0"
+                android:centerY="1.0"
+                android:startColor="${variantB}"
+                android:endColor="@android:color/transparent" />
+        </shape>
+    </item>
+</layer-list>`;
+  }
+
   /** Generate a subtle radial gradient SVG. */
   static createGradient(
     width: number,
@@ -612,7 +704,10 @@ async function main() {
 
     spinner.start("Moving generated icons to final locations");
     AndroidHandler.restore();
-    AndroidHandler.updateBackgroundColor(backgroundColor);
+
+    if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
+    else AndroidHandler.updateBackgroundColor(backgroundColor);
+
     IOSHandler.restore();
     spinner.succeed("Icons moved to final locations");
 
