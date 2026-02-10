@@ -1,10 +1,8 @@
+import type { Config, Rules, Settings } from "eslint-plugin-boundaries";
+
 import js from "@eslint/js";
 import eslintPluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
-import eslintPluginBoundaries, {
-  Config,
-  Rules,
-  Settings,
-} from "eslint-plugin-boundaries";
+import eslintPluginBoundaries from "eslint-plugin-boundaries";
 import eslintPluginPerfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import eslintPluginSolid from "eslint-plugin-solid/configs/typescript";
@@ -21,7 +19,25 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
     plugins: { js },
   },
-  tseslint.configs.recommended,
+  tseslint.configs.strictTypeChecked,
+  tseslint.configs.stylistic,
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+      },
+    },
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "error",
+    },
+  },
+  {
+    extends: [tseslint.configs.disableTypeChecked],
+    files: ["**/*.{js,css}"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "off",
+    },
+  },
 
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
