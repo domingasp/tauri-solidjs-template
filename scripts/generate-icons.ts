@@ -1,4 +1,4 @@
-import { input, select } from "@inquirer/prompts";
+import { checkbox, input, select } from "@inquirer/prompts";
 import { colord } from "colord";
 import { exec } from "node:child_process";
 import fs from "node:fs";
@@ -37,9 +37,17 @@ const CONFIG = {
     macosIcns: "icon.macOS.icns",
   },
   platform: {
-    android: { name: "Android", padding: 0.25 },
-    ios: { name: "iOS", padding: 0.1 },
-    macos: { name: "macOS", padding: 0.1 },
+    android: {
+      name: "Android",
+      padding: 0.25,
+      prerequisite: "src-tauri/gen/android",
+    },
+    ios: { name: "iOS", padding: 0.1, prerequisite: "src-tauri/gen/apple" },
+    macos: {
+      name: "macOS",
+      padding: 0.1,
+      prerequisite: "src-tauri/tauri.macos.conf.json",
+    },
     windows: { name: "Windows", padding: 0.05 },
   },
 } as const;
@@ -574,6 +582,39 @@ class PromptManager {
     });
   }
 
+  /** Request platforms to generate icons for. */
+  static async getPlatformsToGenerate(): Promise<Record<Platform, boolean>> {
+    const platforms = await checkbox<Platform>({
+      choices: Object.entries(CONFIG.platform).map(([key, value]) => {
+        const hasPrerequisite =
+          "prerequisite" in value && value.prerequisite
+            ? fs.existsSync(value.prerequisite)
+            : true;
+
+        const label =
+          hasPrerequisite || !("prerequisite" in value)
+            ? value.name
+            : `${value.name} (${value.prerequisite} not found)`;
+
+        return {
+          checked: hasPrerequisite,
+          name: label,
+          value: key as Platform,
+        };
+      }),
+      message: "Select platforms to generate icons for:",
+      validate: (selected) =>
+        selected.length > 0 ? true : "Please select at least one platform",
+    });
+    return Object.keys(CONFIG.platform).reduce(
+      (acc, platform) => {
+        acc[platform as Platform] = platforms.includes(platform as Platform);
+        return acc;
+      },
+      {} as Record<Platform, boolean>,
+    );
+  }
+
   /** Request whether to use a gradient. */
   static async useGradient(): Promise<boolean> {
     const choice = await select<boolean>({
@@ -652,59 +693,77 @@ async function main() {
     const inputIcon = FileManager.findInputIcon();
     spinner.succeed(`Found input icon: ${path.basename(inputIcon)}`);
 
-    const backgroundColor = await PromptManager.getBackgroundColor();
-    const useGradient = await PromptManager.useGradient();
-    const macOSShape = await PromptManager.getMacOSShape();
+    const platforms = await PromptManager.getPlatformsToGenerate();
 
-    spinner.start("Generating Android icons");
-    const androidTempIcon = await TaskRunner.generatePlatformIcons(
-      inputIcon,
-      "android",
-      backgroundColor,
-      useGradient,
-    );
-    await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
-    AndroidHandler.backup();
-    spinner.succeed("Android icons generated");
-
-    spinner.start("Generating macOS icons");
-    const generatedIcns = await TaskRunner.generatePlatformIcons(
-      inputIcon,
-      "macos",
-      backgroundColor,
-      useGradient,
-      macOSShape,
-    );
-    const macosIcns = path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns);
-    if (fs.existsSync(generatedIcns)) {
-      FileManager.move(generatedIcns, macosIcns);
+    let backgroundColor: string = "#171717";
+    let useGradient: boolean = false;
+    if (platforms.ios || platforms.android || platforms.macos) {
+      backgroundColor = await PromptManager.getBackgroundColor();
+      useGradient = await PromptManager.useGradient();
     }
-    spinner.succeed("macOS icons generated");
 
-    spinner.start("Generating iOS icons");
-    const iosTempIcon = await TaskRunner.generatePlatformIcons(
-      inputIcon,
-      "ios",
-      backgroundColor,
-      useGradient,
-    );
-    await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
+    if (platforms.macos) {
+      const macOSShape = await PromptManager.getMacOSShape();
+      spinner.start("Generating macOS icons");
+      const generatedIcns = await TaskRunner.generatePlatformIcons(
+        inputIcon,
+        "macos",
+        backgroundColor,
+        useGradient,
+        macOSShape,
+      );
+      const macosIcns = path.join(
+        CONFIG.dirs.tauriIcons,
+        CONFIG.files.macosIcns,
+      );
+      if (fs.existsSync(generatedIcns)) {
+        FileManager.move(generatedIcns, macosIcns);
+      }
+      spinner.succeed("macOS icons generated");
+    }
+
+    if (platforms.android) {
+      spinner.start("Generating Android icons");
+      const androidTempIcon = await TaskRunner.generatePlatformIcons(
+        inputIcon,
+        "android",
+        backgroundColor,
+        useGradient,
+      );
+      await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
+      spinner.succeed("Android icons generated");
+    }
+    // Always backup as tauri icon overwrites all icons
+    AndroidHandler.backup();
+
+    if (platforms.ios) {
+      spinner.start("Generating iOS icons");
+      const iosTempIcon = await TaskRunner.generatePlatformIcons(
+        inputIcon,
+        "ios",
+        backgroundColor,
+        useGradient,
+      );
+      await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
+      spinner.succeed("iOS icons generated");
+    }
+    // Always backup as tauri icon overwrites all icons
     IOSHandler.backup();
-    spinner.succeed("iOS icons generated");
 
-    spinner.start("Generating Windows icons");
-    const windowsTempIcon = await TaskRunner.generatePlatformIcons(
-      inputIcon,
-      "windows",
-      backgroundColor,
-      useGradient,
-    );
-    await TaskRunner.runCommand(`pnpm tauri icon ${windowsTempIcon}`);
-    spinner.succeed("Windows icons generated");
+    if (platforms.windows) {
+      spinner.start("Generating Windows icons");
+      const windowsTempIcon = await TaskRunner.generatePlatformIcons(
+        inputIcon,
+        "windows",
+        backgroundColor,
+        useGradient,
+      );
+      await TaskRunner.runCommand(`pnpm tauri icon ${windowsTempIcon}`);
+      spinner.succeed("Windows icons generated");
+    }
 
     spinner.start("Moving generated icons to final locations");
     AndroidHandler.restore();
-
     if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
     else AndroidHandler.updateBackgroundColor(backgroundColor);
 
