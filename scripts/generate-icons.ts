@@ -164,7 +164,7 @@ class AndroidHandler {
     for (const iconPath of iconFiles) {
       if (!fs.existsSync(iconPath)) continue;
       let content = fs.readFileSync(iconPath, "utf-8");
-      content = content.replace(new RegExp(oldReference, "g"), newReference);
+      content = content.replaceAll(oldReference, newReference);
       fs.writeFileSync(iconPath, content);
     }
   }
@@ -384,8 +384,8 @@ class IconGenerator {
 
     const resizedIcon = await this.resizeIcon(inputPath, iconSize);
     const mask = useSquircle
-      ? await MaskGenerator.createSquircle(backgroundSize, backgroundSize)
-      : await MaskGenerator.createRoundedRectangle(
+      ? MaskGenerator.createSquircle(backgroundSize, backgroundSize)
+      : MaskGenerator.createRoundedRectangle(
           backgroundSize,
           backgroundSize,
           cornerRadius,
@@ -488,11 +488,11 @@ class IOSHandler {
 
 class MaskGenerator {
   /** Create a rounded rectangle mask. */
-  static async createRoundedRectangle(
+  static createRoundedRectangle(
     width: number,
     height: number,
     radius: number,
-  ): Promise<Buffer> {
+  ): Buffer {
     const svg = `
       <svg width="${width}" height="${height}">
         <rect x="0" y="0"
@@ -507,7 +507,7 @@ class MaskGenerator {
   }
 
   /** Create a squircle mask. */
-  static async createSquircle(width: number, height: number): Promise<Buffer> {
+  static createSquircle(width: number, height: number): Buffer {
     const points: string[] = [];
     const steps = 360;
     const n = 3.7; // Super-ellipse exponent (higher = more square-like)
@@ -761,9 +761,8 @@ async function main() {
         useGradient,
       );
       await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
-      spinner.succeed("Android icons generated");
-
       AndroidHandler.backup();
+      spinner.succeed("Android icons generated");
     }
 
     if (platforms.ios) {
@@ -775,9 +774,8 @@ async function main() {
         useGradient,
       );
       await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
-      spinner.succeed("iOS icons generated");
-
       IOSHandler.backup();
+      spinner.succeed("iOS icons generated");
     }
 
     if (platforms.windows) {
@@ -789,6 +787,7 @@ async function main() {
         useGradient,
       );
       await TaskRunner.runCommand(`pnpm tauri icon ${windowsTempIcon}`);
+      WindowsHandler.backup();
       spinner.succeed("Windows icons generated");
     }
 
