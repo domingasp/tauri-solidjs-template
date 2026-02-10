@@ -7,7 +7,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 // Vite options tailored for Tauri development and only applied in `tauri dev`
 // or `tauri build`
-export default defineConfig(async () => ({
+export default defineConfig(() => ({
   // prevent Vite from obscuring rust errors
   clearScreen: false,
 
