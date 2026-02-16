@@ -1,25 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
-import { createSignal } from "solid-js";
+import { type JSX, createSignal } from "solid-js";
 
-function App() {
+const App = (): JSX.Element => {
   const [greetMsg, setGreetMsg] = createSignal("");
   const [name, setName] = createSignal("");
 
-  async function greet() {
+  const greet = async (): Promise<void> => {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     setGreetMsg(await invoke("greet", { name: name() }));
-  }
+  };
 
   return (
     <main class="container">
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
+        onSubmit={(event) => {
+          event.preventDefault();
           void greet();
         }}
       >
         <input
-          onChange={(e) => setName(e.currentTarget.value)}
+          onChange={(event) => setName(event.currentTarget.value)}
           placeholder="Enter a name..."
         />
         <button type="submit">Greet</button>
@@ -28,6 +28,6 @@ function App() {
       <p>{greetMsg()}</p>
     </main>
   );
-}
+};
 
 export default App;

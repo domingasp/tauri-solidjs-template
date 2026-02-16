@@ -1,9 +1,10 @@
-import { checkbox, input, select } from "@inquirer/prompts";
-import { colord } from "colord";
 import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
+
+import { checkbox, input, select } from "@inquirer/prompts";
+import { colord } from "colord";
 import ora from "ora";
 import sharp from "sharp";
 
@@ -97,7 +98,9 @@ class AndroidHandler {
   /** Restore Android adaptive icon directories from backup. */
   static restore(): void {
     const backupPath = FileManager.getBackupPath("android-adaptive");
-    if (!fs.existsSync(backupPath)) return;
+    if (!fs.existsSync(backupPath)) {
+      return;
+    }
 
     const adaptiveDirs = fs.readdirSync(backupPath);
     for (const dir of adaptiveDirs) {
@@ -131,9 +134,11 @@ class AndroidHandler {
       CONFIG.files.androidBackgroundXml,
     );
 
-    if (!fs.existsSync(xmlPath)) return;
+    if (!fs.existsSync(xmlPath)) {
+      return;
+    }
 
-    const xmlContent = fs.readFileSync(xmlPath, "utf-8");
+    const xmlContent = fs.readFileSync(xmlPath, "utf8");
     const updatedXml = xmlContent.replace(
       /(<color name="ic_launcher_background">).*?(<\/color>)/,
       `$1${hexColor}$2`,
@@ -155,7 +160,9 @@ class AndroidHandler {
     const dir = CONFIG.constants.androidAdaptiveDirs.find((d) =>
       d.startsWith("mipmap-anydpi"),
     );
-    if (!dir) return;
+    if (!dir) {
+      return;
+    }
 
     const iconFiles = [
       path.join(CONFIG.dirs.androidRes, dir, "ic_launcher.xml"),
@@ -163,8 +170,10 @@ class AndroidHandler {
     ];
 
     for (const iconPath of iconFiles) {
-      if (!fs.existsSync(iconPath)) continue;
-      let content = fs.readFileSync(iconPath, "utf-8");
+      if (!fs.existsSync(iconPath)) {
+        continue;
+      }
+      let content = fs.readFileSync(iconPath, "utf8");
       content = content.replaceAll(oldReference, newReference);
       fs.writeFileSync(iconPath, content);
     }
@@ -313,7 +322,7 @@ class GradientGenerator {
     if (brightness < 0.3) {
       variantA = base.lighten(0.2).rotate(20).toHex();
       variantB = base.lighten(0.08).rotate(-20).toHex();
-    } else if (brightness >= 1.0) {
+    } else if (brightness >= 1) {
       variantA = base.darken(0.15).rotate(20).toHex();
       variantB = base.darken(0.3).rotate(-20).toHex();
     } else {
@@ -519,8 +528,8 @@ class MaskGenerator {
       const angle = (i / steps) * 2 * Math.PI;
       const cosT = Math.cos(angle);
       const sinT = Math.sin(angle);
-      const x = a * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2 / n);
-      const y = b * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2 / n);
+      const x = a * Math.sign(cosT) * Math.abs(cosT) ** (2 / n);
+      const y = b * Math.sign(sinT) * Math.abs(sinT) ** (2 / n);
 
       const command = i === 0 ? "M" : "L";
       points.push(`${command} ${a + x},${b + y}`);
@@ -550,11 +559,13 @@ class PromptManager {
     });
 
     switch (choice) {
-      case "dark":
+      case "dark": {
         return "#171717";
-      case "light":
+      }
+      case "light": {
         return "#FFFFFF";
-      default:
+      }
+      default: {
         return await input({
           default: "#171717",
           message: "Enter a custom hex color:",
@@ -563,6 +574,7 @@ class PromptManager {
               ? true
               : "Please enter a valid hex color (e.g., #171717)",
         });
+      }
     }
   }
 
@@ -638,14 +650,15 @@ class TaskRunner {
     const tempPath = FileManager.getTempPath(`icon-${platform}-temp.png`);
 
     switch (platform) {
-      case "android":
+      case "android": {
         await IconGenerator.createPaddedIcon(
           inputIcon,
           tempPath,
           config.padding,
         );
         break;
-      case "ios":
+      }
+      case "ios": {
         await IconGenerator.createIconWithBackground({
           backgroundColor,
           inputPath: inputIcon,
@@ -655,7 +668,8 @@ class TaskRunner {
           useGradient,
         });
         break;
-      case "macos":
+      }
+      case "macos": {
         await IconGenerator.createMacOSIcon({
           backgroundColor,
           iconPaddingPercent: config.padding,
@@ -665,13 +679,15 @@ class TaskRunner {
           useSquircle: macOSShape === "squircle",
         });
         break;
-      case "windows":
+      }
+      case "windows": {
         await IconGenerator.createPaddedIcon(
           inputIcon,
           tempPath,
           config.padding,
         );
         break;
+      }
     }
 
     return tempPath;
@@ -693,7 +709,7 @@ class WindowsHandler {
         fs.existsSync(path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns))
       ) {
         // MacOS icon is not overwritten by tauri icon command, so we don't
-        // want to back it up, as it would overwrite on restore
+        // Want to back it up, as it would overwrite on restore
         fs.rmSync(path.join(backupPath, CONFIG.files.macosIcns));
       }
     }
@@ -731,7 +747,7 @@ async function main() {
     }
 
     // Always backup as tauri icon overwrites ALL icons, including non-selected
-    // platforms.
+    // Platforms.
     WindowsHandler.backup();
     AndroidHandler.backup();
     IOSHandler.backup();
@@ -806,9 +822,12 @@ async function main() {
 
     if (platforms.android) {
       // Has to be done last as tauri icon overwrites ic_launcher_background.xml
-      // color
-      if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
-      else AndroidHandler.updateBackgroundColor(backgroundColor);
+      // Color
+      if (useGradient) {
+        AndroidHandler.setupGradientBackground(backgroundColor);
+      } else {
+        AndroidHandler.updateBackgroundColor(backgroundColor);
+      }
     }
     spinner.succeed("Icons moved to final locations");
 

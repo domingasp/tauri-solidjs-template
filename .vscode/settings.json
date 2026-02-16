@@ -2,29 +2,16 @@
   "editor.rulers": [80],
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit"
+    "source.fixAll.oxc": "explicit"
   },
-  "eslint.format.enable": true,
-  "eslint.validate": [
-    "javascript",
-    "typescript",
-    "javascriptreact",
-    "typescriptreact",
-    "css",
-    // as file association is set to tailwindcss
-    "tailwindcss"
-  ],
-  "[javascript][typescript][javascriptreact][typescriptreact][css]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
-  "[html][yaml][json][jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "oxc.typeAware": true,
+  "oxc.fmt.configPath": ".oxfmtrc.json",
   "[xml]": {
     "editor.defaultFormatter": "redhat.vscode-xml",
     "editor.tabSize": 4
   },
-  "tailwindCSS.classFunctions": ["tv"],
+  "tailwindCSS.classFunctions": ["cn", "tv"],
   "tailwindCSS.experimental.classRegex": [["(`.*?`)", "(\".*?\")", "('.*?')"]],
   "files.associations": {
     "*.css": "tailwindcss"
@@ -64,9 +51,12 @@
     "desaturate",
     "lintignore",
     "objc",
+    "oxfmt",
+    "oxlint",
     "serde",
     "solidjs",
     "squircle",
+    "stylesheet",
     "tauri"
   ]
 }

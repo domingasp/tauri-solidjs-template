@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": null,
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "restriction": "warn",
+    "style": "warn"
+  },
+  "rules": {
+    "oxc/no-async-await": "off",
+    "no-void": ["error", { "allowAsStatement": true }],
+    // Handled by oxfmt
+    "sort-imports": "off"
+  }
+}

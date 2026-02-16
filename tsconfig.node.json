@@ -7,10 +7,5 @@
     "allowSyntheticDefaultImports": true,
     "strictNullChecks": true
   },
-  "include": [
-    "vite.config.ts",
-    "scripts/**/*.ts",
-    "eslint.config.ts",
-    "lint-staged.config.ts"
-  ]
+  "include": ["vite.config.ts", "scripts/**/*.ts", "lint-staged.config.js"]
 }
