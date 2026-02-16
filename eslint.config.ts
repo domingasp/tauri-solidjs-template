@@ -38,7 +38,7 @@ export default defineConfig([
         { max: 50, skipBlankLines: true, skipComments: true },
       ],
       "max-params": "error",
-      "max-statements": "error",
+      "max-statements": ["error", { max: 15 }],
       "no-magic-numbers": ["error", { ignore: [-1, 0, 1] }],
     },
   },
@@ -58,6 +58,8 @@ export default defineConfig([
     files: ["*.config.{ts,js,mjs}"],
     rules: {
       "max-lines": "off",
+      "max-lines-per-function": "off",
+      "max-statements": "off",
       "no-magic-numbers": "off",
     },
   },
