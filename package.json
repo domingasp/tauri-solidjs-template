@@ -30,7 +30,6 @@
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
-    "@eslint/compat": "^2.0.2",
     "@eslint/js": "^9.39.2",
     "@inquirer/prompts": "^8.2.1",
     "@tailwindcss/vite": "^4.1.18",
@@ -44,7 +43,7 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-better-tailwindcss": "^4.3.0",
     "eslint-plugin-boundaries": "^5.4.0",
-    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-import-x": "^4.16.1",
     "eslint-plugin-jsdoc": "^62.5.5",
     "eslint-plugin-perfectionist": "^5.5.0",
     "eslint-plugin-prettier": "^5.5.5",

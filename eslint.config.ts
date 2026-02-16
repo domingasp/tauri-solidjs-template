@@ -1,15 +1,14 @@
 import type { Config, Rules, Settings } from "eslint-plugin-boundaries";
 
-import { fixupConfigRules } from "@eslint/compat";
 import js from "@eslint/js";
 import eslintPluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
 import eslintPluginBoundaries from "eslint-plugin-boundaries";
-import eslintPluginImportPlugin from "eslint-plugin-import";
+import { flatConfigs as eslintImportXFlatConfigs } from "eslint-plugin-import-x";
 import eslintPluginJsdoc from "eslint-plugin-jsdoc";
 import { configs as eslintPluginPerfectionistConfigs } from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import eslintPluginSolid from "eslint-plugin-solid/configs/typescript";
-import eslintPluginSonarJs from "eslint-plugin-sonarjs";
+import { configs as eslintPluginSonarJsConfigs } from "eslint-plugin-sonarjs";
 import eslintPluginTailwindVariants from "eslint-plugin-tailwind-variants";
 import eslintPluginUnicorn from "eslint-plugin-unicorn";
 import { defineConfig, globalIgnores } from "eslint/config";
@@ -90,10 +89,12 @@ export default defineConfig([
     extends: [
       eslintPluginPerfectionistConfigs["recommended-natural"],
       eslintPluginUnicorn.configs.recommended,
-      eslintPluginImportPlugin.flatConfigs.recommended,
-      eslintPluginImportPlugin.flatConfigs.typescript,
       eslintPluginJsdoc.configs["flat/recommended-typescript-error"],
-      fixupConfigRules(eslintPluginSonarJs.configs?.recommended as never),
+      eslintPluginSonarJsConfigs.recommended,
+      // @ts-expect-error - https://github.com/un-ts/eslint-plugin-import-x/issues/421
+      eslintImportXFlatConfigs.recommended,
+      // @ts-expect-error - https://github.com/un-ts/eslint-plugin-import-x/issues/421
+      eslintImportXFlatConfigs.typescript,
     ],
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     settings: {
