@@ -25,7 +25,7 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
     plugins: { js },
     rules: {
-      complexity: ["error", { max: 15 }],
+      complexity: ["error", { max: 12 }],
       "func-style": ["error", "expression"],
       "max-depth": "error",
       "max-lines": [
@@ -38,7 +38,19 @@ export default defineConfig([
       ],
       "max-params": "error",
       "max-statements": ["error", { max: 15 }],
-      "no-magic-numbers": ["error", { ignore: [-1, 0, 1] }],
+      "no-console": "error",
+      "no-magic-numbers": [
+        "error",
+        { ignore: [-1, 0, 1], ignoreReadonlyClassProperties: true },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          message:
+            "Enums are discouraged. Use union types or const objects instead.",
+          selector: "TSEnumDeclaration",
+        },
+      ],
     },
   },
 
@@ -65,7 +77,7 @@ export default defineConfig([
 
   // TypeScript configuration
   tseslintConfigs.strictTypeChecked,
-  tseslintConfigs.stylistic,
+  tseslintConfigs.stylisticTypeChecked,
   {
     languageOptions: {
       parserOptions: {
@@ -74,6 +86,7 @@ export default defineConfig([
     },
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/explicit-function-return-type": "error",
     },
   },
   {
