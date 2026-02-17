@@ -38,7 +38,7 @@ export default defineConfig([
       ],
       "max-params": "error",
       "max-statements": ["error", { max: 15 }],
-      "no-console": "error",
+      "no-console": ["error", { allow: ["warn", "error"] }],
       "no-magic-numbers": [
         "error",
         { ignore: [-1, 0, 1], ignoreReadonlyClassProperties: true },
