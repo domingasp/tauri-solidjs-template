@@ -3,9 +3,9 @@
   // Be specific with entry files
   "entry": [
     "index.html",
-    ".husky/{commit-msg,pre-commit}",
-    "scripts/generate-icons.ts"
+    ".husky/{commit-msg,pre-commit}"
   ],
   "project": ["src/**"],
-  "tags": ["-lintignore"]
+  "tags": ["-lintignore"],
+  "ignoreDependencies": ["@typescript-eslint/parser"]
 }

@@ -1,9 +1,13 @@
 import type { Config, Rules, Settings } from "eslint-plugin-boundaries";
 
 import js from "@eslint/js";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import eslintPluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
 import eslintPluginBoundaries from "eslint-plugin-boundaries";
-import { flatConfigs as eslintImportXFlatConfigs } from "eslint-plugin-import-x";
+import {
+  createNodeResolver,
+  flatConfigs as eslintImportXFlatConfigs,
+} from "eslint-plugin-import-x";
 import eslintPluginJsdoc from "eslint-plugin-jsdoc";
 import { configs as eslintPluginPerfectionistConfigs } from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
@@ -111,10 +115,10 @@ export default defineConfig([
     ],
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     settings: {
-      "import/resolver": {
-        node: true,
-        typescript: true,
-      },
+      "import-x/resolver-next": [
+        createTypeScriptImportResolver(),
+        createNodeResolver(),
+      ],
     },
   },
 
