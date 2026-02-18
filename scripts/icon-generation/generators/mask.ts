@@ -8,7 +8,7 @@ export const createRoundedRectangle = (
   radius: number,
 ): Buffer => {
   const svg = `
-      <svg width="${width}" height="${height}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
         <rect x="0" y="0"
           width="${width}" height="${height}"
           rx="${radius}" ry="${radius}"
@@ -44,7 +44,7 @@ export const createSquircle = (width: number, height: number): Buffer => {
   }
 
   const svg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
         <path d="${points.join(" ")} Z" fill="white"/>
       </svg>
     `;

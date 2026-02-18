@@ -99,6 +99,10 @@ const generatePlatformIcons = async (
       await createPaddedIcon(inputIcon, temporaryPath, config.padding);
       break;
     }
+    default: {
+      const _exhaustive: never = platform;
+      throw new Error(`Unhandled platform: ${String(_exhaustive)}`);
+    }
   }
 
   return temporaryPath;
@@ -238,9 +242,7 @@ const moveIconsToFinalLocations = (userOptions: UserOptions): void => {
   SPINNER.succeed("Icons moved to final locations");
 };
 
-/**
- *
- */
+/** Generate icons for all selected platforms sequentially. */
 const generateAllPlatformIcons = async (
   inputIcon: string,
   userOptions: UserOptions,
