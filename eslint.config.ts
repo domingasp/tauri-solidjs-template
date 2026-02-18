@@ -20,7 +20,7 @@ import globals from "globals";
 import { configs as tseslintConfigs } from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["src-tauri/**"]),
+  globalIgnores(["src-tauri/**", "dist"]),
 
   // Base configuration
   {
@@ -91,6 +91,7 @@ export default defineConfig([
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/explicit-function-return-type": "error",
+      "@typescript-eslint/non-nullable-type-assertion-style": "off",
     },
   },
   {
@@ -114,6 +115,33 @@ export default defineConfig([
       eslintImportXFlatConfigs.typescript,
     ],
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+    rules: {
+      "jsdoc/require-description-complete-sentence": "warn",
+      "jsdoc/require-jsdoc": [
+        "warn",
+        {
+          checkConstructors: false,
+          contexts: [
+            {
+              // Only require on arrow functions that do NOT start with a
+              // capital letter - components don't need JSDoc
+              context:
+                "VariableDeclarator[id.name=/^[a-z]/] > ArrowFunctionExpression",
+              inlineCommentBlock: false,
+            },
+          ],
+          // Turn off the generic require so only contexts apply
+          require: {},
+        },
+      ],
+      "sonarjs/function-return-type": "off",
+      "unicorn/prevent-abbreviations": [
+        "error",
+        {
+          ignore: ["^vite-env"],
+        },
+      ],
+    },
     settings: {
       "import-x/resolver-next": [
         createTypeScriptImportResolver(),
