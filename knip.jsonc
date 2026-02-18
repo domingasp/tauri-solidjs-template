@@ -5,7 +5,7 @@
     "index.html",
     ".husky/{commit-msg,pre-commit}"
   ],
-  "project": ["src/**"],
+  "project": ["src/**", "scripts/**"],
   "tags": ["-lintignore"],
   "ignoreDependencies": ["@typescript-eslint/parser"]
 }
