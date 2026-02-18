@@ -21,7 +21,7 @@ export default defineConfig(() => ({
           protocol: "ws",
         }
       : undefined,
-    host: host || false,
+    host: host ?? false,
     port: 1420,
     strictPort: true,
     watch: {
