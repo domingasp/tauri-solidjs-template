@@ -4,4 +4,7 @@ import { render } from "solid-js/web";
 
 import App from "./app";
 
-render(() => <App />, document.querySelector("#root") as HTMLElement);
+const root = document.querySelector<HTMLElement>("#root");
+if (root === null) throw new Error("Root element not found");
+
+render(() => <App />, root);
