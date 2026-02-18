@@ -1,820 +1,296 @@
-import { checkbox, input, select } from "@inquirer/prompts";
-import { colord } from "colord";
+#!/usr/bin/env node
 import { exec } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import ora from "ora";
-import sharp from "sharp";
+
+import type { MacOSShape, Platform } from "./icon-generation/types";
+
+import CONFIG from "./icon-generation/config";
+import {
+  ensureDirectoryExists,
+  findInputIcon,
+  move,
+  resolveTemporaryPath,
+} from "./icon-generation/file";
+import {
+  createIconWithBackground,
+  createMacOSIcon,
+  createPaddedIcon,
+} from "./icon-generation/generators/icon";
+import {
+  backupAndroidAdaptive,
+  restoreAndroidAdaptive,
+  setupGradientBackground,
+  updateBackgroundColor,
+} from "./icon-generation/platform-handlers/android";
+import {
+  backupIOSIcons,
+  restoreIOSIcons,
+} from "./icon-generation/platform-handlers/ios";
+import {
+  backupWindowsIcons,
+  restoreWindowsIcons,
+} from "./icon-generation/platform-handlers/windows";
+import {
+  getBackgroundColor,
+  getMacOSShape,
+  getPlatformsToGenerate,
+  getUseGradient,
+} from "./icon-generation/prompts";
 
 const execAsync = promisify(exec);
 
-// #region Configuration
-
-const CONFIG = {
-  constants: {
-    androidAdaptiveDirs: [
-      "mipmap-anydpi-v26",
-      "mipmap-hdpi",
-      "mipmap-mdpi",
-      "mipmap-xhdpi",
-      "mipmap-xxhdpi",
-      "mipmap-xxxhdpi",
-    ],
-    macosCornerRadiusPercent: 0.2237,
-    targetSize: 1024,
-  },
-  dirs: {
-    androidRes: "src-tauri/gen/android/app/src/main/res",
-    assets: "assets",
-    iosIcons: "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset",
-    tauriIcons: "src-tauri/icons",
-    temp: "assets/.temp-icons",
-  },
-  files: {
-    androidBackgroundXml: "values/ic_launcher_background.xml",
-    generatedIcns: "icon.icns",
-    macosIcns: "icon.macOS.icns",
-  },
-  platform: {
-    android: {
-      name: "Android",
-      padding: 0.25,
-      prerequisite: "src-tauri/gen/android",
-    },
-    ios: { name: "iOS", padding: 0.1, prerequisite: "src-tauri/gen/apple" },
-    macos: {
-      name: "macOS",
-      padding: 0.1,
-      prerequisite: "src-tauri/tauri.macos.conf.json",
-    },
-    windows: { name: "Windows", padding: 0.05 },
-  },
-} as const;
-
-// #endregion Configuration
-
-// #region Types
-
-interface IconGenerationOptions {
-  backgroundColor?: string;
-  inputPath: string;
-  outputPath: string;
-  paddingPercent: number;
-  platform: Platform;
+interface UserOptions {
+  backgroundColor: string;
+  macOSShape?: MacOSShape;
+  platforms: Platform[];
   useGradient?: boolean;
 }
 
-type MacOSIconOptions = Omit<
-  IconGenerationOptions,
-  "paddingPercent" | "platform"
-> & {
-  iconPaddingPercent: number;
-  useSquircle: boolean;
+const SPINNER = ora();
+
+/** Run a shell command asynchronously, suppressing output. */
+const runCommand = async (command: string): Promise<void> => {
+  await execAsync(command);
 };
 
-type MacOSShape = "rounded-rectangle" | "squircle";
+/**
+ * Generate icons for a specific platform using the input icon and user options.
+ * @returns The path to the generated icon file for the platform.
+ */
+const generatePlatformIcons = async (
+  inputIcon: string,
+  platform: Platform,
+  userOptions: UserOptions,
+): Promise<string> => {
+  const config = CONFIG.platform[platform];
+  const temporaryPath = resolveTemporaryPath(`icon-${platform}-temp.png`);
 
-type Platform = "android" | "ios" | "macos" | "windows";
-
-// #endregion Types
-
-class AndroidHandler {
-  /** Backup Android adaptive icon directories. */
-  static backup(): void {
-    const backupPath = FileManager.getBackupPath("android-adaptive");
-    FileManager.ensureDir(backupPath);
-
-    for (const dir of CONFIG.constants.androidAdaptiveDirs) {
-      const sourceDir = path.join(CONFIG.dirs.androidRes, dir);
-      const targetDir = path.join(backupPath, dir);
-      if (fs.existsSync(sourceDir)) {
-        FileManager.backup(sourceDir, targetDir);
-      }
+  switch (platform) {
+    case "android": {
+      await createPaddedIcon(inputIcon, temporaryPath, config.padding);
+      break;
+    }
+    case "ios": {
+      await createIconWithBackground({
+        backgroundColor: userOptions.backgroundColor,
+        inputPath: inputIcon,
+        outputPath: temporaryPath,
+        paddingPercent: config.padding,
+        platform,
+        useGradient: userOptions.useGradient,
+      });
+      break;
+    }
+    case "macos": {
+      await createMacOSIcon({
+        backgroundColor: userOptions.backgroundColor,
+        iconPaddingPercent: config.padding,
+        inputPath: inputIcon,
+        outputPath: temporaryPath,
+        useGradient: userOptions.useGradient,
+        useSquircle: userOptions.macOSShape === "squircle",
+      });
+      break;
+    }
+    case "windows": {
+      await createPaddedIcon(inputIcon, temporaryPath, config.padding);
+      break;
     }
   }
 
-  /** Restore Android adaptive icon directories from backup. */
-  static restore(): void {
-    const backupPath = FileManager.getBackupPath("android-adaptive");
-    if (!fs.existsSync(backupPath)) return;
+  return temporaryPath;
+};
 
-    const adaptiveDirs = fs.readdirSync(backupPath);
-    for (const dir of adaptiveDirs) {
-      const sourcePath = path.join(backupPath, dir);
-      const targetPath = path.join(CONFIG.dirs.androidRes, dir);
-      if (fs.existsSync(sourcePath)) {
-        FileManager.restore(sourcePath, targetPath);
-      }
-    }
-  }
+/** Handle macOS icons generation. */
+const handleMacOSIcons = async (
+  inputIcon: string,
+  userOptions: UserOptions,
+): Promise<void> => {
+  const macOSShape = await getMacOSShape();
+  const macosTemporaryIcon = await generatePlatformIcons(inputIcon, "macos", {
+    ...userOptions,
+    macOSShape,
+  });
+  SPINNER.start("Generating macOS icons");
 
-  /** Create gradient drawable and update adaptive icon to use it. */
-  static setupGradientBackground(baseColor: string): void {
-    const drawableDir = path.join(CONFIG.dirs.androidRes, "drawable");
-    FileManager.ensureDir(drawableDir);
-
-    const drawablePath = path.join(drawableDir, "ic_launcher_background.xml");
-    const drawableContent = GradientGenerator.createAndroidDrawable(baseColor);
-    fs.writeFileSync(drawablePath, drawableContent);
-
-    this.updateAdaptiveIconBackground(
-      "@color/ic_launcher_background",
-      "@drawable/ic_launcher_background",
+  await runCommand(`pnpm tauri icon ${macosTemporaryIcon}`);
+  const generatedIcns = path.join(
+    CONFIG.dirs.tauriIcons,
+    CONFIG.files.generatedIcns,
+  );
+  if (fs.existsSync(generatedIcns)) {
+    move(
+      generatedIcns,
+      path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns),
     );
   }
 
-  /** Update the background color in the Android launcher XML files. */
-  static updateBackgroundColor(hexColor: string): void {
-    const xmlPath = path.join(
-      CONFIG.dirs.androidRes,
-      CONFIG.files.androidBackgroundXml,
-    );
+  SPINNER.succeed("macOS icons generated");
+};
 
-    if (!fs.existsSync(xmlPath)) return;
+/** Handle Android icons generation. */
+const handleAndroidIcons = async (
+  inputIcon: string,
+  userOptions: UserOptions,
+): Promise<void> => {
+  SPINNER.start("Generating Android icons");
+  const androidTemporaryIcon = await generatePlatformIcons(
+    inputIcon,
+    "android",
+    userOptions,
+  );
+  await runCommand(`pnpm tauri icon ${androidTemporaryIcon}`);
+  backupAndroidAdaptive();
+  SPINNER.succeed("Android icons generated");
+};
 
-    const xmlContent = fs.readFileSync(xmlPath, "utf-8");
-    const updatedXml = xmlContent.replace(
-      /(<color name="ic_launcher_background">).*?(<\/color>)/,
-      `$1${hexColor}$2`,
-    );
+/** Handle iOS icons generation. */
+const handleIOSIcons = async (
+  inputIcon: string,
+  userOptions: UserOptions,
+): Promise<void> => {
+  SPINNER.start("Generating iOS icons");
+  const iosTemporaryIcon = await generatePlatformIcons(
+    inputIcon,
+    "ios",
+    userOptions,
+  );
+  await runCommand(`pnpm tauri icon ${iosTemporaryIcon}`);
+  backupIOSIcons();
+  SPINNER.succeed("iOS icons generated");
+};
 
-    fs.writeFileSync(xmlPath, updatedXml);
+/** Handle Windows icons generation. */
+const handleWindowsIcons = async (
+  inputIcon: string,
+  userOptions: UserOptions,
+): Promise<void> => {
+  SPINNER.start("Generating Windows icons");
+  const windowsTemporaryIcon = await generatePlatformIcons(
+    inputIcon,
+    "windows",
+    userOptions,
+  );
+  await runCommand(`pnpm tauri icon ${windowsTemporaryIcon}`);
+  backupWindowsIcons();
+  SPINNER.succeed("Windows icons generated");
+};
 
-    this.updateAdaptiveIconBackground(
-      "@drawable/ic_launcher_background",
-      "@color/ic_launcher_background",
-    );
+/** Handle directories setup. */
+const setupDirectories = (): void => {
+  SPINNER.start("Setting up directories");
+  ensureDirectoryExists(CONFIG.dirs.assets);
+  ensureDirectoryExists(CONFIG.dirs.temp);
+  SPINNER.succeed("Directories ready");
+};
+
+/**
+ * Prompt user for options and return them in a structured format.
+ * @returns An object containing user-selected options for icon generation.
+ */
+const getUserOptions = async (): Promise<UserOptions> => {
+  const platforms = await getPlatformsToGenerate();
+
+  let backgroundColor = "#171717";
+  let useGradient = false;
+  if (
+    platforms.includes("macos") ||
+    platforms.includes("ios") ||
+    platforms.includes("android")
+  ) {
+    backgroundColor = await getBackgroundColor();
+    useGradient = await getUseGradient();
   }
 
-  /** Update adaptive icon XML files to use specified background reference. */
-  private static updateAdaptiveIconBackground(
-    oldReference: string,
-    newReference: string,
-  ): void {
-    const dir = CONFIG.constants.androidAdaptiveDirs.find((d) =>
-      d.startsWith("mipmap-anydpi"),
-    );
-    if (!dir) return;
+  return {
+    backgroundColor,
+    platforms,
+    useGradient,
+  };
+};
 
-    const iconFiles = [
-      path.join(CONFIG.dirs.androidRes, dir, "ic_launcher.xml"),
-      path.join(CONFIG.dirs.androidRes, dir, "ic_launcher_round.xml"),
-    ];
+/** Backup existing icons for all platforms. */
+const backupAllIcons = (): void => {
+  // Always backup as tauri icon overwrites ALL icons, including non-selected
+  // platforms.
+  backupWindowsIcons();
+  backupAndroidAdaptive();
+  backupIOSIcons();
+};
 
-    for (const iconPath of iconFiles) {
-      if (!fs.existsSync(iconPath)) continue;
-      let content = fs.readFileSync(iconPath, "utf-8");
-      content = content.replaceAll(oldReference, newReference);
-      fs.writeFileSync(iconPath, content);
-    }
+/** Move generated icons to their final locations. */
+const moveIconsToFinalLocations = (userOptions: UserOptions): void => {
+  SPINNER.start("Moving generated icons to final locations");
+  restoreWindowsIcons();
+  restoreAndroidAdaptive();
+  restoreIOSIcons();
+
+  if (userOptions.platforms.includes("android")) {
+    // Has to be done last as tauri icon overwrites ic_launcher_background.xml
+    // color
+    if (userOptions.useGradient)
+      setupGradientBackground(userOptions.backgroundColor);
+    else updateBackgroundColor(userOptions.backgroundColor);
   }
-}
+  SPINNER.succeed("Icons moved to final locations");
+};
 
-class FileManager {
-  /** Backup a directory or file to the backup location. */
-  static backup(sourcePath: string, backupPath: string): void {
-    this.ensureDir(path.dirname(backupPath));
-    if (fs.existsSync(sourcePath)) {
-      fs.cpSync(sourcePath, backupPath, { recursive: true });
-    }
-  }
-
-  /** Ensure directory exists, creating it if necessary. */
-  static ensureDir(dirPath: string): void {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-  }
-
-  /** Find the first existing input icon file in the assets directory. */
-  static findInputIcon(): string {
-    const candidates = ["icon.svg", "icon.png", "icon.jpg", "icon.jpeg"];
-    for (const candidate of candidates) {
-      const candidatePath = path.join(CONFIG.dirs.assets, candidate);
-      if (fs.existsSync(candidatePath)) {
-        return candidatePath;
-      }
-    }
-
-    throw new Error(
-      `No input icon found in ${CONFIG.dirs.assets}. Please add: ${candidates.join(", ")}`,
-    );
+/**
+ *
+ */
+const generateAllPlatformIcons = async (
+  inputIcon: string,
+  userOptions: UserOptions,
+): Promise<void> => {
+  if (userOptions.platforms.includes("macos")) {
+    await handleMacOSIcons(inputIcon, userOptions);
   }
 
-  /** Get the backup path for a given subfolder. */
-  static getBackupPath(subfolder: string): string {
-    return path.join(CONFIG.dirs.temp, subfolder);
+  if (userOptions.platforms.includes("android")) {
+    await handleAndroidIcons(inputIcon, userOptions);
   }
 
-  /** Get the temporary path for a given filename. */
-  static getTempPath(filename: string): string {
-    return path.join(CONFIG.dirs.temp, filename);
+  if (userOptions.platforms.includes("ios")) {
+    await handleIOSIcons(inputIcon, userOptions);
   }
 
-  /** Move a directory or file to a new location. */
-  static move(source: string, destination: string): void {
-    this.ensureDir(path.dirname(destination));
-    fs.renameSync(source, destination);
+  if (userOptions.platforms.includes("windows")) {
+    await handleWindowsIcons(inputIcon, userOptions);
   }
+};
 
-  /** Restore a directory or file from the backup location. */
-  static restore(backupPath: string, targetPath: string): void {
-    if (!fs.existsSync(backupPath)) {
-      return;
-    }
-    this.ensureDir(targetPath);
-    fs.cpSync(backupPath, targetPath, { recursive: true });
-  }
-}
+/**
+ * Set up, prompt for options, and prepare for icon generation.
+ * @returns An object containing the path to the input icon and user-selected options.
+ */
+const initialize = async (): Promise<{
+  inputIcon: string;
+  userOptions: UserOptions;
+}> => {
+  setupDirectories();
 
-class GradientGenerator {
-  /** Generate an Android drawable XML string with a radial gradient. */
-  static createAndroidDrawable(baseColor: string): string {
-    const { variantA, variantB } = this.getGradientVariants(baseColor);
+  SPINNER.start("Looking for input icon");
+  const inputIcon = findInputIcon();
+  SPINNER.succeed(`Found input icon: ${path.basename(inputIcon)}`);
 
-    return `<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape>
-            <solid android:color="${baseColor}" />
-        </shape>
-    </item>
-    <item>
-        <shape>
-            <gradient
-                android:type="radial"
-                android:gradientRadius="90%"
-                android:centerX="0.0"
-                android:centerY="0.1"
-                android:startColor="${variantA}"
-                android:endColor="@android:color/transparent" />
-        </shape>
-    </item>
-    <item>
-        <shape>
-            <gradient
-                android:type="radial"
-                android:gradientRadius="80%"
-                android:centerX="1.0"
-                android:centerY="1.0"
-                android:startColor="${variantB}"
-                android:endColor="@android:color/transparent" />
-        </shape>
-    </item>
-</layer-list>`;
-  }
+  const userOptions = await getUserOptions();
+  backupAllIcons();
 
-  /** Generate a subtle radial gradient SVG. */
-  static createGradient(
-    width: number,
-    height: number,
-    baseColor: string,
-  ): string {
-    const { variantA, variantB } = this.getGradientVariants(baseColor);
+  return { inputIcon, userOptions };
+};
 
-    return `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="topLeft" cx="0%" cy="10%" r="90%">
-            <stop offset="0%" style="stop-color:${variantA};stop-opacity:0.6" />
-            <stop offset="100%" style="stop-color:${baseColor};stop-opacity:0" />
-          </radialGradient>
-          <radialGradient id="bottomRight" cx="100%" cy="100%" r="80%">
-            <stop offset="0%" style="stop-color:${variantB};stop-opacity:0.6" />
-            <stop offset="100%" style="stop-color:${baseColor};stop-opacity:0" />
-          </radialGradient>
-        </defs>
-        <rect width="${width}" height="${height}" fill="${baseColor}" />
-        <rect width="${width}" height="${height}" fill="url(#topLeft)" />
-        <rect width="${width}" height="${height}" fill="url(#bottomRight)" />
-      </svg>
-    `.trim();
-  }
-
-  /** Create a radial gradient buffer */
-  static async createGradientBuffer(
-    size: number,
-    baseColor: string,
-  ): Promise<Buffer> {
-    const svg = this.createGradient(size, size, baseColor);
-    return await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
-  }
-
-  /** Get gradient color variants based on the base color's brightness. */
-  private static getGradientVariants(baseColor: string): {
-    variantA: string;
-    variantB: string;
-  } {
-    const base = colord(baseColor);
-    const brightness = base.brightness();
-    let variantA: string;
-    let variantB: string;
-    if (brightness < 0.3) {
-      variantA = base.lighten(0.2).rotate(20).toHex();
-      variantB = base.lighten(0.08).rotate(-20).toHex();
-    } else if (brightness >= 1.0) {
-      variantA = base.darken(0.15).rotate(20).toHex();
-      variantB = base.darken(0.3).rotate(-20).toHex();
-    } else {
-      variantA = base.lighten(0.08).rotate(20).toHex();
-      variantB = base.darken(0.08).rotate(-20).toHex();
-    }
-
-    return { variantA, variantB };
-  }
-}
-
-class IconGenerator {
-  /** Create an icon with a background color and padding. */
-  static async createIconWithBackground(
-    options: IconGenerationOptions,
-  ): Promise<void> {
-    const {
-      backgroundColor,
-      inputPath,
-      outputPath,
-      paddingPercent,
-      useGradient,
-    } = options;
-    const paddingSize = Math.floor(
-      CONFIG.constants.targetSize * paddingPercent,
-    );
-    const iconSize = CONFIG.constants.targetSize - paddingSize * 2;
-
-    const resizedIcon = await this.resizeIcon(inputPath, iconSize);
-    let canvas: sharp.Sharp;
-    if (useGradient && backgroundColor) {
-      const gradientBuffer = await GradientGenerator.createGradientBuffer(
-        CONFIG.constants.targetSize,
-        backgroundColor,
-      );
-      canvas = sharp(gradientBuffer);
-    } else {
-      canvas = await this.createCanvas(
-        CONFIG.constants.targetSize,
-        backgroundColor,
-      );
-    }
-
-    await canvas
-      .composite([{ input: resizedIcon, left: paddingSize, top: paddingSize }])
-      .png()
-      .toFile(outputPath);
-  }
-
-  static async createMacOSIcon(options: MacOSIconOptions): Promise<void> {
-    const {
-      backgroundColor,
-      iconPaddingPercent,
-      inputPath,
-      outputPath,
-      useGradient,
-      useSquircle,
-    } = options;
-
-    const paddingSize = Math.floor(
-      CONFIG.constants.targetSize * CONFIG.platform.macos.padding,
-    );
-    const backgroundSize = CONFIG.constants.targetSize - paddingSize * 2;
-    const cornerRadius = Math.floor(
-      backgroundSize * CONFIG.constants.macosCornerRadiusPercent,
-    );
-    const iconPadding = Math.floor(backgroundSize * iconPaddingPercent);
-    const iconSize = backgroundSize - iconPadding * 2;
-
-    const resizedIcon = await this.resizeIcon(inputPath, iconSize);
-    const mask = useSquircle
-      ? MaskGenerator.createSquircle(backgroundSize, backgroundSize)
-      : MaskGenerator.createRoundedRectangle(
-          backgroundSize,
-          backgroundSize,
-          cornerRadius,
-        );
-
-    let backgroundCanvas: sharp.Sharp;
-    if (useGradient && backgroundColor) {
-      const gradientBuffer = await GradientGenerator.createGradientBuffer(
-        backgroundSize,
-        backgroundColor,
-      );
-      backgroundCanvas = sharp(gradientBuffer);
-    } else {
-      backgroundCanvas = await this.createCanvas(
-        backgroundSize,
-        backgroundColor,
-      );
-    }
-
-    const maskedIcon = await backgroundCanvas
-      .composite([{ blend: "dest-in", input: mask }, { input: resizedIcon }])
-      .png()
-      .toBuffer();
-
-    await (
-      await this.createCanvas(CONFIG.constants.targetSize)
-    )
-      .composite([{ input: maskedIcon, left: paddingSize, top: paddingSize }])
-      .png()
-      .toFile(outputPath);
-  }
-
-  /** Create an icon with padding around it. */
-  static async createPaddedIcon(
-    inputPath: string,
-    outputPath: string,
-    paddingPercent: number,
-  ): Promise<void> {
-    const paddingSize = Math.floor(
-      CONFIG.constants.targetSize * paddingPercent,
-    );
-    const iconSize = CONFIG.constants.targetSize - paddingSize * 2;
-
-    const resizedIcon = await this.resizeIcon(inputPath, iconSize);
-    const canvas = await this.createCanvas(CONFIG.constants.targetSize);
-
-    await canvas
-      .composite([{ input: resizedIcon, left: paddingSize, top: paddingSize }])
-      .png()
-      .toFile(outputPath);
-  }
-
-  /** Create empty canvas of specified size. */
-  private static async createCanvas(
-    size: number,
-    background?: string,
-  ): Promise<sharp.Sharp> {
-    return sharp({
-      create: {
-        background: background ?? { alpha: 0, b: 0, g: 0, r: 0 },
-        channels: 4,
-        height: size,
-        width: size,
-      },
-    });
-  }
-
-  /** Resize an icon to the specified size. */
-  private static async resizeIcon(
-    inputPath: string,
-    size: number,
-  ): Promise<Buffer> {
-    return sharp(inputPath)
-      .resize(size, size, {
-        background: { alpha: 0, b: 0, g: 0, r: 0 },
-        fit: "contain",
-      })
-      .png()
-      .toBuffer();
-  }
-}
-
-class IOSHandler {
-  /** Backup iOS icon assets. */
-  static backup(): void {
-    const backupPath = FileManager.getBackupPath("ios-icons");
-    if (fs.existsSync(CONFIG.dirs.iosIcons)) {
-      FileManager.backup(CONFIG.dirs.iosIcons, backupPath);
-    }
-  }
-
-  /** Restore iOS icon assets from backup. */
-  static restore(): void {
-    const backupPath = FileManager.getBackupPath("ios-icons");
-    if (fs.existsSync(backupPath)) {
-      FileManager.restore(backupPath, CONFIG.dirs.iosIcons);
-    }
-  }
-}
-
-class MaskGenerator {
-  /** Create a rounded rectangle mask. */
-  static createRoundedRectangle(
-    width: number,
-    height: number,
-    radius: number,
-  ): Buffer {
-    const svg = `
-      <svg width="${width}" height="${height}">
-        <rect x="0" y="0"
-          width="${width}" height="${height}"
-          rx="${radius}" ry="${radius}"
-          fill="white"
-        />
-      </svg>
-    `;
-
-    return Buffer.from(svg);
-  }
-
-  /** Create a squircle mask. */
-  static createSquircle(width: number, height: number): Buffer {
-    const points: string[] = [];
-    const steps = 360;
-    const n = 3.7; // Super-ellipse exponent (higher = more square-like)
-    const a = width / 2;
-    const b = height / 2;
-
-    for (let i = 0; i <= steps; i++) {
-      const angle = (i / steps) * 2 * Math.PI;
-      const cosT = Math.cos(angle);
-      const sinT = Math.sin(angle);
-      const x = a * Math.sign(cosT) * Math.pow(Math.abs(cosT), 2 / n);
-      const y = b * Math.sign(sinT) * Math.pow(Math.abs(sinT), 2 / n);
-
-      const command = i === 0 ? "M" : "L";
-      points.push(`${command} ${a + x},${b + y}`);
-    }
-
-    const svg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <path d="${points.join(" ")} Z" fill="white"/>
-      </svg>
-    `;
-
-    return Buffer.from(svg);
-  }
-}
-
-class PromptManager {
-  /** Request background color from the user. */
-  static async getBackgroundColor(): Promise<string> {
-    const choice = await select<"custom" | "dark" | "light">({
-      choices: [
-        { name: "Light", value: "light" },
-        { name: "Dark", value: "dark" },
-        { name: "Custom hex code", value: "custom" },
-      ],
-      default: "dark",
-      message: "Choose a background color (iOS, Android, macOS):",
-    });
-
-    switch (choice) {
-      case "dark":
-        return "#171717";
-      case "light":
-        return "#FFFFFF";
-      default:
-        return await input({
-          default: "#171717",
-          message: "Enter a custom hex color:",
-          validate: (value) =>
-            /^#[0-9A-Fa-f]{6}$/.test(value)
-              ? true
-              : "Please enter a valid hex color (e.g., #171717)",
-        });
-    }
-  }
-
-  /** Request macOS icon shape from the user. */
-  static async getMacOSShape(): Promise<MacOSShape> {
-    return await select<MacOSShape>({
-      choices: [
-        { name: "Rounded Rectangle", value: "rounded-rectangle" },
-        { name: "Squircle", value: "squircle" },
-      ],
-      default: "rounded-rectangle",
-      message: "Choose macOS icon shape:",
-    });
-  }
-
-  /** Request platforms to generate icons for. */
-  static async getPlatformsToGenerate(): Promise<Record<Platform, boolean>> {
-    const platforms = await checkbox<Platform>({
-      choices: Object.entries(CONFIG.platform).map(([key, value]) => {
-        const hasPrerequisite =
-          "prerequisite" in value && value.prerequisite
-            ? fs.existsSync(value.prerequisite)
-            : true;
-
-        const label =
-          hasPrerequisite || !("prerequisite" in value)
-            ? value.name
-            : `${value.name} (${value.prerequisite} not found)`;
-
-        return {
-          checked: hasPrerequisite,
-          name: label,
-          value: key as Platform,
-        };
-      }),
-      message: "Select platforms to generate icons for:",
-      validate: (selected) =>
-        selected.length > 0 ? true : "Please select at least one platform",
-    });
-    return Object.keys(CONFIG.platform).reduce(
-      (acc, platform) => {
-        acc[platform as Platform] = platforms.includes(platform as Platform);
-        return acc;
-      },
-      {} as Record<Platform, boolean>,
-    );
-  }
-
-  /** Request whether to use a gradient. */
-  static async useGradient(): Promise<boolean> {
-    const choice = await select<boolean>({
-      choices: [
-        { name: "Yes - Subtle gradient", value: true },
-        { name: "No - Solid color", value: false },
-      ],
-      default: true,
-      message: "Use a subtle gradient background?",
-    });
-
-    return choice;
-  }
-}
-
-class TaskRunner {
-  static async generatePlatformIcons(
-    inputIcon: string,
-    platform: Platform,
-    backgroundColor: string,
-    useGradient?: boolean,
-    macOSShape?: MacOSShape,
-  ): Promise<string> {
-    const config = CONFIG.platform[platform];
-    const tempPath = FileManager.getTempPath(`icon-${platform}-temp.png`);
-
-    switch (platform) {
-      case "android":
-        await IconGenerator.createPaddedIcon(
-          inputIcon,
-          tempPath,
-          config.padding,
-        );
-        break;
-      case "ios":
-        await IconGenerator.createIconWithBackground({
-          backgroundColor,
-          inputPath: inputIcon,
-          outputPath: tempPath,
-          paddingPercent: config.padding,
-          platform,
-          useGradient,
-        });
-        break;
-      case "macos":
-        await IconGenerator.createMacOSIcon({
-          backgroundColor,
-          iconPaddingPercent: config.padding,
-          inputPath: inputIcon,
-          outputPath: tempPath,
-          useGradient,
-          useSquircle: macOSShape === "squircle",
-        });
-        break;
-      case "windows":
-        await IconGenerator.createPaddedIcon(
-          inputIcon,
-          tempPath,
-          config.padding,
-        );
-        break;
-    }
-
-    return tempPath;
-  }
-
-  /** Run a shell command asynchronously, suppressing output. */
-  static async runCommand(command: string): Promise<void> {
-    await execAsync(command);
-  }
-}
-
-class WindowsHandler {
-  /** Backup standard icon assets. */
-  static backup(): void {
-    const backupPath = FileManager.getBackupPath("windows-icons");
-    if (fs.existsSync(CONFIG.dirs.tauriIcons)) {
-      FileManager.backup(CONFIG.dirs.tauriIcons, backupPath);
-      if (
-        fs.existsSync(path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns))
-      ) {
-        // MacOS icon is not overwritten by tauri icon command, so we don't
-        // want to back it up, as it would overwrite on restore
-        fs.rmSync(path.join(backupPath, CONFIG.files.macosIcns));
-      }
-    }
-  }
-
-  /** Restore standard icon assets from backup. */
-  static restore(): void {
-    const backupPath = FileManager.getBackupPath("windows-icons");
-    if (fs.existsSync(backupPath)) {
-      FileManager.restore(backupPath, CONFIG.dirs.tauriIcons);
-    }
-  }
-}
-
-async function main() {
-  const spinner = ora();
-
+/** Main function to generate icons for various platforms. */
+const main = async (): Promise<void> => {
   try {
-    spinner.start("Setting up directories");
-    FileManager.ensureDir(CONFIG.dirs.assets);
-    FileManager.ensureDir(CONFIG.dirs.temp);
-    spinner.succeed("Directories ready");
-
-    spinner.start("Looking for input icon");
-    const inputIcon = FileManager.findInputIcon();
-    spinner.succeed(`Found input icon: ${path.basename(inputIcon)}`);
-
-    const platforms = await PromptManager.getPlatformsToGenerate();
-
-    let backgroundColor = "#171717";
-    let useGradient = false;
-    if (platforms.ios || platforms.android || platforms.macos) {
-      backgroundColor = await PromptManager.getBackgroundColor();
-      useGradient = await PromptManager.useGradient();
-    }
-
-    // Always backup as tauri icon overwrites ALL icons, including non-selected
-    // platforms.
-    WindowsHandler.backup();
-    AndroidHandler.backup();
-    IOSHandler.backup();
-
-    if (platforms.macos) {
-      const macOSShape = await PromptManager.getMacOSShape();
-      spinner.start("Generating macOS icons");
-      const macosTempIcon = await TaskRunner.generatePlatformIcons(
-        inputIcon,
-        "macos",
-        backgroundColor,
-        useGradient,
-        macOSShape,
-      );
-      await TaskRunner.runCommand(`pnpm tauri icon ${macosTempIcon}`);
-      const generatedIcns = path.join(
-        CONFIG.dirs.tauriIcons,
-        CONFIG.files.generatedIcns,
-      );
-      if (fs.existsSync(generatedIcns)) {
-        FileManager.move(
-          generatedIcns,
-          path.join(CONFIG.dirs.tauriIcons, CONFIG.files.macosIcns),
-        );
-      }
-      spinner.succeed("macOS icons generated");
-    }
-
-    if (platforms.android) {
-      spinner.start("Generating Android icons");
-      const androidTempIcon = await TaskRunner.generatePlatformIcons(
-        inputIcon,
-        "android",
-        backgroundColor,
-        useGradient,
-      );
-      await TaskRunner.runCommand(`pnpm tauri icon ${androidTempIcon}`);
-      AndroidHandler.backup();
-      spinner.succeed("Android icons generated");
-    }
-
-    if (platforms.ios) {
-      spinner.start("Generating iOS icons");
-      const iosTempIcon = await TaskRunner.generatePlatformIcons(
-        inputIcon,
-        "ios",
-        backgroundColor,
-        useGradient,
-      );
-      await TaskRunner.runCommand(`pnpm tauri icon ${iosTempIcon}`);
-      IOSHandler.backup();
-      spinner.succeed("iOS icons generated");
-    }
-
-    if (platforms.windows) {
-      spinner.start("Generating Windows icons");
-      const windowsTempIcon = await TaskRunner.generatePlatformIcons(
-        inputIcon,
-        "windows",
-        backgroundColor,
-        useGradient,
-      );
-      await TaskRunner.runCommand(`pnpm tauri icon ${windowsTempIcon}`);
-      WindowsHandler.backup();
-      spinner.succeed("Windows icons generated");
-    }
-
-    spinner.start("Moving generated icons to final locations");
-    WindowsHandler.restore();
-    AndroidHandler.restore();
-    IOSHandler.restore();
-
-    if (platforms.android) {
-      // Has to be done last as tauri icon overwrites ic_launcher_background.xml
-      // color
-      if (useGradient) AndroidHandler.setupGradientBackground(backgroundColor);
-      else AndroidHandler.updateBackgroundColor(backgroundColor);
-    }
-    spinner.succeed("Icons moved to final locations");
-
-    spinner.succeed("✨ All icons generated successfully!");
+    const { inputIcon, userOptions } = await initialize();
+    await generateAllPlatformIcons(inputIcon, userOptions);
+    moveIconsToFinalLocations(userOptions);
+    SPINNER.succeed("✨ All icons generated successfully!");
   } catch (error) {
-    spinner.fail("Icon generation failed");
+    SPINNER.fail("Icon generation failed");
     console.error(
       "Error:",
       error instanceof Error ? error.message : String(error),
@@ -822,12 +298,12 @@ async function main() {
 
     process.exit(1);
   } finally {
-    spinner.start("Cleaning up temporary files...");
+    SPINNER.start("Cleaning up temporary files...");
     if (fs.existsSync(CONFIG.dirs.temp)) {
       fs.rmSync(CONFIG.dirs.temp, { force: true, recursive: true });
     }
-    spinner.succeed("Cleanup complete");
+    SPINNER.succeed("Cleanup complete");
   }
-}
+};
 
-main();
+void main();

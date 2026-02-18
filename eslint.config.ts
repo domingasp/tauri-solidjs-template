@@ -30,6 +30,7 @@ export default defineConfig([
     plugins: { js },
     rules: {
       complexity: ["error", { max: 12 }],
+      curly: "error",
       "func-style": ["error", "expression"],
       "max-depth": "error",
       "max-lines": [
@@ -45,7 +46,7 @@ export default defineConfig([
       "no-console": ["error", { allow: ["warn", "error"] }],
       "no-magic-numbers": [
         "error",
-        { ignore: [-1, 0, 1], ignoreReadonlyClassProperties: true },
+        { ignore: [-1, 0, 1, 2], ignoreReadonlyClassProperties: true },
       ],
       "no-restricted-syntax": [
         "error",
@@ -92,6 +93,12 @@ export default defineConfig([
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/explicit-function-return-type": "error",
       "@typescript-eslint/non-nullable-type-assertion-style": "off",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        {
+          allowNumber: true,
+        },
+      ],
     },
   },
   {
@@ -116,6 +123,7 @@ export default defineConfig([
     ],
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     rules: {
+      "import-x/exports-last": "error",
       "jsdoc/require-description-complete-sentence": "warn",
       "jsdoc/require-jsdoc": [
         "warn",
@@ -134,6 +142,8 @@ export default defineConfig([
           require: {},
         },
       ],
+      "jsdoc/require-param": "off",
+      "jsdoc/require-throws": "error",
       "sonarjs/function-return-type": "off",
       "unicorn/prevent-abbreviations": [
         "error",
