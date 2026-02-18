@@ -2,6 +2,9 @@ import "./styles/global.css";
 /* @refresh reload */
 import { render } from "solid-js/web";
 
-import App from "./App";
+import App from "./app";
 
-render(() => <App />, document.getElementById("root") as HTMLElement);
+const root = document.querySelector<HTMLElement>("#root");
+if (root === null) throw new Error("Root element not found");
+
+render(() => <App />, root);
