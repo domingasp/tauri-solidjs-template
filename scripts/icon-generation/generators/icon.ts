@@ -135,7 +135,10 @@ export const createMacOSIcon = async (
   }
 
   const maskedIcon = await backgroundCanvas
-    .composite([{ blend: "dest-in", input: mask }, { input: resizedIcon }])
+    .composite([
+      { blend: "dest-in", input: mask },
+      { input: resizedIcon, left: iconPadding, top: iconPadding },
+    ])
     .png()
     .toBuffer();
 

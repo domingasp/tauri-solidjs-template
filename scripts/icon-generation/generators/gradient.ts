@@ -42,7 +42,7 @@ const createGradient = (
   const { variantA, variantB } = getGradientVariants(baseColor);
 
   return `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
         <defs>
           <radialGradient id="topLeft" cx="0%" cy="10%" r="90%">
             <stop offset="0%" style="stop-color:${variantA};stop-opacity:0.6" />
@@ -108,5 +108,5 @@ export const createGradientBuffer = async (
   baseColor: string,
 ): Promise<Buffer> => {
   const svg = createGradient(size, size, baseColor);
-  return await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
+  return await sharp(Buffer.from(svg)).png().toBuffer();
 };
