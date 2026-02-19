@@ -6,23 +6,6 @@ import CONFIG from "../config";
 import { createGradientBuffer } from "./gradient";
 import { createRoundedRectangle, createSquircle } from "./mask";
 
-interface IconGenerationOptions {
-  backgroundColor?: string;
-  inputPath: string;
-  outputPath: string;
-  paddingPercent: number;
-  platform: Platform;
-  useGradient?: boolean;
-}
-
-type MacOSIconOptions = Omit<
-  IconGenerationOptions,
-  "paddingPercent" | "platform"
-> & {
-  iconPaddingPercent: number;
-  useSquircle: boolean;
-};
-
 /**
  * Create empty canvas of specified size.
  * @returns A Sharp instance representing the canvas.
@@ -53,6 +36,68 @@ const resizeIcon = async (inputPath: string, size: number): Promise<Buffer> => {
 };
 
 /**
+ * Create a background canvas, optionally with a gradient, for the icon.
+ * @returns A Sharp instance representing the background canvas.
+ */
+const createBackgroundCanvas = async (
+  size: number,
+  backgroundColor?: string,
+  useGradient?: boolean,
+): Promise<sharp.Sharp> => {
+  if (useGradient && backgroundColor) {
+    const gradientBuffer = await createGradientBuffer(size, backgroundColor);
+    return sharp(gradientBuffer);
+  }
+  return createCanvas(size, backgroundColor);
+};
+
+interface CompositeIconOptions {
+  background: sharp.Sharp;
+  images: sharp.OverlayOptions[];
+  outerPaddingSize: number;
+  outputPath: string;
+}
+
+/** Composite the icon onto the background canvas with optional padding and shape. */
+const compositeFinalIcon = async (
+  options: CompositeIconOptions,
+): Promise<void> => {
+  const composited = await options.background
+    .composite(options.images)
+    .png()
+    .toBuffer();
+  await (options.outerPaddingSize === 0
+    ? sharp(composited).toFile(options.outputPath)
+    : createCanvas(CONFIG.constants.targetSize)
+        .composite([
+          {
+            input: composited,
+            left: options.outerPaddingSize,
+            top: options.outerPaddingSize,
+          },
+        ])
+        .png()
+        .toFile(options.outputPath));
+};
+
+export interface IconGenerationOptions {
+  backgroundColor?: string;
+  inputPath: string;
+  /**
+   * When set, the background + mask is rendered at
+   * (targetSize - outerPaddingPercent * 2), then composited onto a transparent
+   * canvas of targetSize. This produces the macOS-style floating rounded tile
+   * with a transparent border.
+   */
+  outerPaddingPercent?: number;
+  outputPath: string;
+  paddingPercent: number;
+  platform: Platform;
+  useGradient?: boolean;
+  useSquircle?: boolean;
+}
+
+/**
  * Create and save an icon with padding around it.
  * @param inputPath Path to the source icon image.
  * @param outputPath Path to save the generated icon.
@@ -79,71 +124,40 @@ export const createPaddedIcon = async (
 export const createIconWithBackground = async (
   options: IconGenerationOptions,
 ): Promise<void> => {
-  const paddingSize = Math.floor(
-    CONFIG.constants.targetSize * options.paddingPercent,
-  );
-  const iconSize = CONFIG.constants.targetSize - paddingSize * 2;
-  const resizedIcon = await resizeIcon(options.inputPath, iconSize);
-  let canvas: sharp.Sharp;
-  if (options.useGradient && options.backgroundColor) {
-    const gradientBuffer = await createGradientBuffer(
-      CONFIG.constants.targetSize,
-      options.backgroundColor,
-    );
-    canvas = sharp(gradientBuffer);
-  } else {
-    canvas = createCanvas(CONFIG.constants.targetSize, options.backgroundColor);
-  }
-
-  await canvas
-    .composite([{ input: resizedIcon, left: paddingSize, top: paddingSize }])
-    .png()
-    .toFile(options.outputPath);
-};
-
-/**
- * Create a macOS icon with specified options, including background color,
- * padding, and shape.
- */
-export const createMacOSIcon = async (
-  options: MacOSIconOptions,
-): Promise<void> => {
-  const paddingSize = Math.floor(
-    CONFIG.constants.targetSize * CONFIG.platform.macos.padding,
-  );
-  const backgroundSize = CONFIG.constants.targetSize - paddingSize * 2;
-  const cornerRadius = Math.floor(
-    backgroundSize * CONFIG.constants.macosCornerRadiusPercent,
-  );
-  const iconPadding = Math.floor(backgroundSize * options.iconPaddingPercent);
-  const iconSize = backgroundSize - iconPadding * 2;
+  const outerPaddingSize = options.outerPaddingPercent
+    ? Math.floor(CONFIG.constants.targetSize * options.outerPaddingPercent)
+    : 0;
+  const backgroundSize = CONFIG.constants.targetSize - outerPaddingSize * 2;
+  const paddingSize = Math.floor(backgroundSize * options.paddingPercent);
+  const iconSize = backgroundSize - paddingSize * 2;
 
   const resizedIcon = await resizeIcon(options.inputPath, iconSize);
-  const mask = options.useSquircle
-    ? createSquircle(backgroundSize, backgroundSize)
-    : createRoundedRectangle(backgroundSize, backgroundSize, cornerRadius);
 
-  let backgroundCanvas: sharp.Sharp;
-  if (options.useGradient && options.backgroundColor) {
-    const gradientBuffer = await createGradientBuffer(
-      backgroundSize,
-      options.backgroundColor,
+  const background = await createBackgroundCanvas(
+    backgroundSize,
+    options.backgroundColor,
+    options.useGradient,
+  );
+
+  const images: sharp.OverlayOptions[] = [
+    { input: resizedIcon, left: paddingSize, top: paddingSize },
+  ];
+
+  if (options.useSquircle !== undefined) {
+    const cornerRadius = Math.floor(
+      backgroundSize * CONFIG.constants.macosCornerRadiusPercent,
     );
-    backgroundCanvas = sharp(gradientBuffer);
-  } else {
-    backgroundCanvas = createCanvas(backgroundSize, options.backgroundColor);
+    const mask = options.useSquircle
+      ? createSquircle(backgroundSize, backgroundSize)
+      : createRoundedRectangle(backgroundSize, backgroundSize, cornerRadius);
+
+    images.unshift({ blend: "dest-in", input: mask });
   }
 
-  const maskedIcon = await backgroundCanvas
-    .composite([
-      { blend: "dest-in", input: mask },
-      { input: resizedIcon, left: iconPadding, top: iconPadding },
-    ])
-    .png()
-    .toBuffer();
-
-  await createCanvas(CONFIG.constants.targetSize)
-    .composite([{ input: maskedIcon, left: paddingSize, top: paddingSize }])
-    .png()
-    .toFile(options.outputPath);
+  await compositeFinalIcon({
+    background,
+    images,
+    outerPaddingSize,
+    outputPath: options.outputPath,
+  });
 };

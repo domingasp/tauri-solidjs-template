@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import ora from "ora";
 
+import type { IconGenerationOptions } from "./icon-generation/generators/icon";
 import type { BackgroundShape, Platform } from "./icon-generation/types";
 
 import CONFIG from "./icon-generation/config";
@@ -16,7 +17,6 @@ import {
 } from "./icon-generation/file";
 import {
   createIconWithBackground,
-  createMacOSIcon,
   createPaddedIcon,
 } from "./icon-generation/generators/icon";
 import {
@@ -70,35 +70,39 @@ const generatePlatformIcons = async (
   const config = CONFIG.platform[platform];
   const temporaryPath = resolveTemporaryPath(`icon-${platform}-temp.png`);
 
+  const options: IconGenerationOptions = {
+    backgroundColor: userOptions.backgroundColor,
+    inputPath: inputIcon,
+    outputPath: temporaryPath,
+    paddingPercent: config.padding,
+    platform,
+    useGradient: userOptions.useGradient,
+    useSquircle: userOptions.backgroundShape === "squircle",
+  };
+
   switch (platform) {
     case "android": {
       await createPaddedIcon(inputIcon, temporaryPath, config.padding);
       break;
     }
     case "ios": {
-      await createIconWithBackground({
-        backgroundColor: userOptions.backgroundColor,
-        inputPath: inputIcon,
-        outputPath: temporaryPath,
-        paddingPercent: config.padding,
-        platform,
-        useGradient: userOptions.useGradient,
-      });
+      await createIconWithBackground(options);
       break;
     }
     case "macos": {
-      await createMacOSIcon({
-        backgroundColor: userOptions.backgroundColor,
-        iconPaddingPercent: config.padding,
-        inputPath: inputIcon,
-        outputPath: temporaryPath,
-        useGradient: userOptions.useGradient,
-        useSquircle: userOptions.backgroundShape === "squircle",
+      await createIconWithBackground({
+        ...options,
+        outerPaddingPercent: CONFIG.platform.macos.padding,
       });
       break;
     }
     case "windows": {
-      await createPaddedIcon(inputIcon, temporaryPath, config.padding);
+      await (userOptions.windowsUseTransparentBackground
+        ? createPaddedIcon(inputIcon, temporaryPath, config.padding)
+        : createIconWithBackground({
+            ...options,
+            paddingPercent: config.padding * 2,
+          }));
       break;
     }
     default: {
