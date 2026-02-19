@@ -1,7 +1,7 @@
 import { checkbox, input, select } from "@inquirer/prompts";
 import fs from "node:fs";
 
-import type { MacOSShape, Platform } from "./types";
+import type { BackgroundShape, Platform } from "./types";
 
 import CONFIG from "./config";
 
@@ -17,7 +17,7 @@ export const getBackgroundColor = async (): Promise<string> => {
       { name: "Custom hex code", value: "custom" },
     ],
     default: "dark",
-    message: "Choose a background color (iOS, Android, macOS):",
+    message: "Choose a background color:",
   });
 
   switch (choice) {
@@ -41,17 +41,17 @@ export const getBackgroundColor = async (): Promise<string> => {
 };
 
 /**
- * Request macOS icon shape from the user.
- * @returns The selected macOS icon shape.
+ * Request background shape from the user.
+ * @returns The selected background shape.
  */
-export const getMacOSShape = async (): Promise<MacOSShape> => {
-  return await select<MacOSShape>({
+export const getBackgroundShape = async (): Promise<BackgroundShape> => {
+  return await select<BackgroundShape>({
     choices: [
       { name: "Rounded Rectangle", value: "rounded-rectangle" },
       { name: "Squircle", value: "squircle" },
     ],
     default: "rounded-rectangle",
-    message: "Choose macOS icon shape:",
+    message: "Choose background shape:",
   });
 };
 
@@ -96,6 +96,23 @@ export const getUseGradient = async (): Promise<boolean> => {
     ],
     default: true,
     message: "Use a subtle gradient background?",
+  });
+
+  return choice;
+};
+
+/**
+ * Request whether to use a solid background for Windows icons.
+ * @returns `true` if a solid background should be used for Windows icons.
+ */
+export const getWindowsSolidBackground = async (): Promise<boolean> => {
+  const choice = await select<boolean>({
+    choices: [
+      { name: "Transparent", value: false },
+      { name: "Solid", value: true },
+    ],
+    default: false,
+    message: "Windows icon background:",
   });
 
   return choice;
