@@ -1,7 +1,7 @@
 import { checkbox, input, select } from "@inquirer/prompts";
 import fs from "node:fs";
 
-import type { MacOSShape, Platform } from "./types";
+import type { BackgroundShape, Platform } from "./types";
 
 import CONFIG from "./config";
 
@@ -41,17 +41,17 @@ export const getBackgroundColor = async (): Promise<string> => {
 };
 
 /**
- * Request macOS icon shape from the user.
- * @returns The selected macOS icon shape.
+ * Request background shape from the user.
+ * @returns The selected background shape.
  */
-export const getMacOSShape = async (): Promise<MacOSShape> => {
-  return await select<MacOSShape>({
+export const getBackgroundShape = async (): Promise<BackgroundShape> => {
+  return await select<BackgroundShape>({
     choices: [
       { name: "Rounded Rectangle", value: "rounded-rectangle" },
       { name: "Squircle", value: "squircle" },
     ],
     default: "rounded-rectangle",
-    message: "Choose macOS icon shape:",
+    message: "Choose background shape:",
   });
 };
 
@@ -100,3 +100,21 @@ export const getUseGradient = async (): Promise<boolean> => {
 
   return choice;
 };
+
+/**
+ * Request whether to use a transparent background for Windows icons.
+ * @returns `true` if a transparent background should be used for Windows icons.
+ */
+export const getShouldWindowsUseTransparentBackground =
+  async (): Promise<boolean> => {
+    const choice = await select<boolean>({
+      choices: [
+        { name: "Yes - Use transparent background", value: true },
+        { name: "No", value: false },
+      ],
+      default: true,
+      message: "Use a transparent background for Windows?",
+    });
+
+    return choice;
+  };
