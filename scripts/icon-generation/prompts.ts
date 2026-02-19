@@ -17,7 +17,7 @@ export const getBackgroundColor = async (): Promise<string> => {
       { name: "Custom hex code", value: "custom" },
     ],
     default: "dark",
-    message: "Choose a background color (iOS, Android, macOS):",
+    message: "Choose a background color:",
   });
 
   switch (choice) {
@@ -102,19 +102,18 @@ export const getUseGradient = async (): Promise<boolean> => {
 };
 
 /**
- * Request whether to use a transparent background for Windows icons.
- * @returns `true` if a transparent background should be used for Windows icons.
+ * Request whether to use a solid background for Windows icons.
+ * @returns `true` if a solid background should be used for Windows icons.
  */
-export const getShouldWindowsUseTransparentBackground =
-  async (): Promise<boolean> => {
-    const choice = await select<boolean>({
-      choices: [
-        { name: "Yes - Use transparent background", value: true },
-        { name: "No", value: false },
-      ],
-      default: true,
-      message: "Use a transparent background for Windows?",
-    });
+export const getWindowsSolidBackground = async (): Promise<boolean> => {
+  const choice = await select<boolean>({
+    choices: [
+      { name: "Transparent", value: false },
+      { name: "Solid", value: true },
+    ],
+    default: false,
+    message: "Windows icon background:",
+  });
 
-    return choice;
-  };
+  return choice;
+};
