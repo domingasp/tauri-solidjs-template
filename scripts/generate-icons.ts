@@ -5,7 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import ora from "ora";
 
-import type { MacOSShape, Platform } from "./icon-generation/types";
+import type { BackgroundShape, Platform } from "./icon-generation/types";
 
 import CONFIG from "./icon-generation/config";
 import {
@@ -35,8 +35,9 @@ import {
 } from "./icon-generation/platform-handlers/windows";
 import {
   getBackgroundColor,
-  getMacOSShape,
+  getBackgroundShape,
   getPlatformsToGenerate,
+  getShouldWindowsUseTransparentBackground,
   getUseGradient,
 } from "./icon-generation/prompts";
 
@@ -44,9 +45,10 @@ const execAsync = promisify(exec);
 
 interface UserOptions {
   backgroundColor: string;
-  macOSShape?: MacOSShape;
+  backgroundShape?: BackgroundShape;
   platforms: Platform[];
   useGradient?: boolean;
+  windowsUseTransparentBackground?: boolean;
 }
 
 const SPINNER = ora();
@@ -91,7 +93,7 @@ const generatePlatformIcons = async (
         inputPath: inputIcon,
         outputPath: temporaryPath,
         useGradient: userOptions.useGradient,
-        useSquircle: userOptions.macOSShape === "squircle",
+        useSquircle: userOptions.backgroundShape === "squircle",
       });
       break;
     }
@@ -113,11 +115,11 @@ const handleMacOSIcons = async (
   inputIcon: string,
   userOptions: UserOptions,
 ): Promise<void> => {
-  const macOSShape = await getMacOSShape();
-  const macosTemporaryIcon = await generatePlatformIcons(inputIcon, "macos", {
-    ...userOptions,
-    macOSShape,
-  });
+  const macosTemporaryIcon = await generatePlatformIcons(
+    inputIcon,
+    "macos",
+    userOptions,
+  );
   SPINNER.start("Generating macOS icons");
 
   await runCommand(`pnpm tauri icon ${macosTemporaryIcon}`);
@@ -200,19 +202,34 @@ const getUserOptions = async (): Promise<UserOptions> => {
 
   let backgroundColor = "#171717";
   let useGradient = false;
+  let backgroundShape: BackgroundShape | undefined = undefined;
+  let windowsUseTransparentBackground: boolean | undefined = undefined;
+
+  if (platforms.includes("windows")) {
+    windowsUseTransparentBackground =
+      await getShouldWindowsUseTransparentBackground();
+  }
+
   if (
     platforms.includes("macos") ||
     platforms.includes("ios") ||
-    platforms.includes("android")
+    platforms.includes("android") ||
+    !windowsUseTransparentBackground
   ) {
     backgroundColor = await getBackgroundColor();
     useGradient = await getUseGradient();
+
+    if (platforms.includes("macos") || !windowsUseTransparentBackground) {
+      backgroundShape = await getBackgroundShape();
+    }
   }
 
   return {
     backgroundColor,
+    backgroundShape,
     platforms,
     useGradient,
+    windowsUseTransparentBackground,
   };
 };
 
