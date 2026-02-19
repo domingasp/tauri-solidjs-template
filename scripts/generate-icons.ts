@@ -5,7 +5,8 @@ import path from "node:path";
 import { promisify } from "node:util";
 import ora from "ora";
 
-import type { MacOSShape, Platform } from "./icon-generation/types";
+import type { IconGenerationOptions } from "./icon-generation/generators/icon";
+import type { BackgroundShape, Platform } from "./icon-generation/types";
 
 import CONFIG from "./icon-generation/config";
 import {
@@ -16,7 +17,6 @@ import {
 } from "./icon-generation/file";
 import {
   createIconWithBackground,
-  createMacOSIcon,
   createPaddedIcon,
 } from "./icon-generation/generators/icon";
 import {
@@ -35,18 +35,20 @@ import {
 } from "./icon-generation/platform-handlers/windows";
 import {
   getBackgroundColor,
-  getMacOSShape,
+  getBackgroundShape,
   getPlatformsToGenerate,
   getUseGradient,
+  getWindowsSolidBackground,
 } from "./icon-generation/prompts";
 
 const execAsync = promisify(exec);
 
 interface UserOptions {
   backgroundColor: string;
-  macOSShape?: MacOSShape;
+  backgroundShape?: BackgroundShape;
   platforms: Platform[];
   useGradient?: boolean;
+  windowsUseSolidBackground?: boolean;
 }
 
 const SPINNER = ora();
@@ -68,35 +70,41 @@ const generatePlatformIcons = async (
   const config = CONFIG.platform[platform];
   const temporaryPath = resolveTemporaryPath(`icon-${platform}-temp.png`);
 
+  const options: IconGenerationOptions = {
+    backgroundColor: userOptions.backgroundColor,
+    backgroundShape:
+      // iOS doesn't use a background shape
+      platform === "ios" ? undefined : userOptions.backgroundShape,
+    inputPath: inputIcon,
+    outputPath: temporaryPath,
+    paddingPercent: config.padding,
+    platform,
+    useGradient: userOptions.useGradient,
+  };
+
   switch (platform) {
     case "android": {
       await createPaddedIcon(inputIcon, temporaryPath, config.padding);
       break;
     }
     case "ios": {
-      await createIconWithBackground({
-        backgroundColor: userOptions.backgroundColor,
-        inputPath: inputIcon,
-        outputPath: temporaryPath,
-        paddingPercent: config.padding,
-        platform,
-        useGradient: userOptions.useGradient,
-      });
+      await createIconWithBackground(options);
       break;
     }
     case "macos": {
-      await createMacOSIcon({
-        backgroundColor: userOptions.backgroundColor,
-        iconPaddingPercent: config.padding,
-        inputPath: inputIcon,
-        outputPath: temporaryPath,
-        useGradient: userOptions.useGradient,
-        useSquircle: userOptions.macOSShape === "squircle",
+      await createIconWithBackground({
+        ...options,
+        outerPaddingPercent: CONFIG.platform.macos.padding,
       });
       break;
     }
     case "windows": {
-      await createPaddedIcon(inputIcon, temporaryPath, config.padding);
+      await (userOptions.windowsUseSolidBackground
+        ? createIconWithBackground({
+            ...options,
+            paddingPercent: config.padding * 2,
+          })
+        : createPaddedIcon(inputIcon, temporaryPath, config.padding));
       break;
     }
     default: {
@@ -113,11 +121,11 @@ const handleMacOSIcons = async (
   inputIcon: string,
   userOptions: UserOptions,
 ): Promise<void> => {
-  const macOSShape = await getMacOSShape();
-  const macosTemporaryIcon = await generatePlatformIcons(inputIcon, "macos", {
-    ...userOptions,
-    macOSShape,
-  });
+  const macosTemporaryIcon = await generatePlatformIcons(
+    inputIcon,
+    "macos",
+    userOptions,
+  );
   SPINNER.start("Generating macOS icons");
 
   await runCommand(`pnpm tauri icon ${macosTemporaryIcon}`);
@@ -200,19 +208,33 @@ const getUserOptions = async (): Promise<UserOptions> => {
 
   let backgroundColor = "#171717";
   let useGradient = false;
+  let backgroundShape: BackgroundShape | undefined = undefined;
+  let windowsUseSolidBackground: boolean | undefined = undefined;
+
+  if (platforms.includes("windows")) {
+    windowsUseSolidBackground = await getWindowsSolidBackground();
+  }
+
   if (
     platforms.includes("macos") ||
     platforms.includes("ios") ||
-    platforms.includes("android")
+    platforms.includes("android") ||
+    windowsUseSolidBackground === true
   ) {
     backgroundColor = await getBackgroundColor();
     useGradient = await getUseGradient();
+
+    if (platforms.includes("macos") || windowsUseSolidBackground === true) {
+      backgroundShape = await getBackgroundShape();
+    }
   }
 
   return {
     backgroundColor,
+    backgroundShape,
     platforms,
     useGradient,
+    windowsUseSolidBackground,
   };
 };
 
