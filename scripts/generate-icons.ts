@@ -37,8 +37,8 @@ import {
   getBackgroundColor,
   getBackgroundShape,
   getPlatformsToGenerate,
-  getShouldWindowsUseTransparentBackground,
   getUseGradient,
+  getWindowsSolidBackground,
 } from "./icon-generation/prompts";
 
 const execAsync = promisify(exec);
@@ -48,7 +48,7 @@ interface UserOptions {
   backgroundShape?: BackgroundShape;
   platforms: Platform[];
   useGradient?: boolean;
-  windowsUseTransparentBackground?: boolean;
+  windowsUseSolidBackground?: boolean;
 }
 
 const SPINNER = ora();
@@ -72,12 +72,14 @@ const generatePlatformIcons = async (
 
   const options: IconGenerationOptions = {
     backgroundColor: userOptions.backgroundColor,
+    backgroundShape:
+      // iOS doesn't use a background shape
+      platform === "ios" ? undefined : userOptions.backgroundShape,
     inputPath: inputIcon,
     outputPath: temporaryPath,
     paddingPercent: config.padding,
     platform,
     useGradient: userOptions.useGradient,
-    useSquircle: userOptions.backgroundShape === "squircle",
   };
 
   switch (platform) {
@@ -97,12 +99,12 @@ const generatePlatformIcons = async (
       break;
     }
     case "windows": {
-      await (userOptions.windowsUseTransparentBackground
-        ? createPaddedIcon(inputIcon, temporaryPath, config.padding)
-        : createIconWithBackground({
+      await (userOptions.windowsUseSolidBackground
+        ? createIconWithBackground({
             ...options,
             paddingPercent: config.padding * 2,
-          }));
+          })
+        : createPaddedIcon(inputIcon, temporaryPath, config.padding));
       break;
     }
     default: {
@@ -207,23 +209,22 @@ const getUserOptions = async (): Promise<UserOptions> => {
   let backgroundColor = "#171717";
   let useGradient = false;
   let backgroundShape: BackgroundShape | undefined = undefined;
-  let windowsUseTransparentBackground: boolean | undefined = undefined;
+  let windowsUseSolidBackground: boolean | undefined = undefined;
 
   if (platforms.includes("windows")) {
-    windowsUseTransparentBackground =
-      await getShouldWindowsUseTransparentBackground();
+    windowsUseSolidBackground = await getWindowsSolidBackground();
   }
 
   if (
     platforms.includes("macos") ||
     platforms.includes("ios") ||
     platforms.includes("android") ||
-    !windowsUseTransparentBackground
+    windowsUseSolidBackground !== undefined
   ) {
     backgroundColor = await getBackgroundColor();
     useGradient = await getUseGradient();
 
-    if (platforms.includes("macos") || !windowsUseTransparentBackground) {
+    if (platforms.includes("macos") || windowsUseSolidBackground === true) {
       backgroundShape = await getBackgroundShape();
     }
   }
@@ -233,7 +234,7 @@ const getUserOptions = async (): Promise<UserOptions> => {
     backgroundShape,
     platforms,
     useGradient,
-    windowsUseTransparentBackground,
+    windowsUseSolidBackground,
   };
 };
 

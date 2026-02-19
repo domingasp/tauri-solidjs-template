@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-import type { Platform } from "../types";
+import type { BackgroundShape, Platform } from "../types";
 
 import CONFIG from "../config";
 import { createGradientBuffer } from "./gradient";
@@ -82,6 +82,7 @@ const compositeFinalIcon = async (
 
 export interface IconGenerationOptions {
   backgroundColor?: string;
+  backgroundShape?: BackgroundShape;
   inputPath: string;
   /**
    * When set, the background + mask is rendered at
@@ -94,7 +95,6 @@ export interface IconGenerationOptions {
   paddingPercent: number;
   platform: Platform;
   useGradient?: boolean;
-  useSquircle?: boolean;
 }
 
 /**
@@ -143,13 +143,14 @@ export const createIconWithBackground = async (
     { input: resizedIcon, left: paddingSize, top: paddingSize },
   ];
 
-  if (options.useSquircle !== undefined) {
+  if (options.backgroundShape !== undefined) {
     const cornerRadius = Math.floor(
       backgroundSize * CONFIG.constants.macosCornerRadiusPercent,
     );
-    const mask = options.useSquircle
-      ? createSquircle(backgroundSize, backgroundSize)
-      : createRoundedRectangle(backgroundSize, backgroundSize, cornerRadius);
+    const mask =
+      options.backgroundShape === "squircle"
+        ? createSquircle(backgroundSize, backgroundSize)
+        : createRoundedRectangle(backgroundSize, backgroundSize, cornerRadius);
 
     images.unshift({ blend: "dest-in", input: mask });
   }
