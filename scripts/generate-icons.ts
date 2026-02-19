@@ -219,7 +219,7 @@ const getUserOptions = async (): Promise<UserOptions> => {
     platforms.includes("macos") ||
     platforms.includes("ios") ||
     platforms.includes("android") ||
-    windowsUseSolidBackground !== undefined
+    windowsUseSolidBackground === true
   ) {
     backgroundColor = await getBackgroundColor();
     useGradient = await getUseGradient();
